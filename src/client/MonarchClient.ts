@@ -1,4 +1,5 @@
 import { AuthenticationService, LoginOptions, MFAOptions } from './auth'
+import { DirectAuthenticationService, DirectLoginOptions } from './auth/DirectAuthenticationService'
 import { GraphQLClient } from './graphql'
 import { MultiLevelCache } from '../cache'
 import { AccountsAPIImpl } from '../api/accounts'
@@ -47,6 +48,7 @@ const DEFAULT_CONFIG: Required<MonarchConfig> = {
 export class MonarchClient {
   private config: Required<MonarchConfig>
   private auth: AuthenticationService
+  private directAuth: DirectAuthenticationService
   private graphql: GraphQLClient
   private cache?: MultiLevelCache
 
@@ -68,6 +70,13 @@ export class MonarchClient {
     this.auth = new AuthenticationService(
       this.config.baseURL,
       undefined
+    )
+
+    // Initialize direct authentication service with shared session storage
+    // We need to access the private sessionStorage, so we'll use a workaround
+    this.directAuth = new DirectAuthenticationService(
+      this.config.baseURL,
+      (this.auth as any).sessionStorage  // Access private property for shared storage
     )
 
     // Initialize GraphQL client
@@ -137,6 +146,14 @@ export class MonarchClient {
     await this.auth.multiFactorAuthenticate(options)
   }
 
+  /**
+   * Direct login using the proven working authentication approach
+   * This bypasses the complex retry logic and directly replicates the working raw authentication
+   */
+  async directLogin(options: DirectLoginOptions): Promise<void> {
+    await this.directAuth.login(options)
+  }
+
   // Session management
   async validateSession(): Promise<boolean> {
     return await this.auth.validateSession()
@@ -151,6 +168,11 @@ export class MonarchClient {
   }
 
   getSessionInfo(): SessionInfo {
+    // Try direct auth first, then fall back to main auth
+    const directSession = this.directAuth.getSessionInfo()
+    if (directSession.isValid) {
+      return directSession
+    }
     return this.auth.getSessionInfo()
   }
 
@@ -164,6 +186,7 @@ export class MonarchClient {
 
   deleteSession(): void {
     this.auth.deleteSession()
+    this.directAuth.deleteSession()
   }
 
   // GraphQL methods
