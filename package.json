@@ -1,0 +1,86 @@
+{
+  "name": "monarchmoney",
+  "version": "1.0.0",
+  "description": "TypeScript/JavaScript library for interacting with Monarch Money's GraphQL API",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "npm run build:cjs && npm run build:esm && npm run build:types",
+    "build:cjs": "tsc -p tsconfig.cjs.json",
+    "build:esm": "tsc -p tsconfig.esm.json",
+    "build:types": "tsc -p tsconfig.types.json",
+    "dev": "tsc -w",
+    "test": "jest --testPathIgnorePatterns=integration",
+    "test:unit": "jest --testPathIgnorePatterns=integration",
+    "test:integration": "jest integration.test.ts",
+    "test:watch": "jest --watch --testPathIgnorePatterns=integration",
+    "test:coverage": "jest --coverage --testPathIgnorePatterns=integration",
+    "test:all": "jest",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "format": "prettier --write src/**/*.ts",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist coverage",
+    "prepublishOnly": "npm run clean && npm run lint && npm run type-check && npm run build && npm run test"
+  },
+  "keywords": [
+    "monarch-money",
+    "personal-finance",
+    "banking",
+    "transactions",
+    "budgets",
+    "investments",
+    "graphql",
+    "mcp",
+    "typescript"
+  ],
+  "author": "Keith Ah <keithah@users.noreply.github.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/keithah/monarchmoney-ts.git"
+  },
+  "bugs": {
+    "url": "https://github.com/keithah/monarchmoney-ts/issues"
+  },
+  "homepage": "https://github.com/keithah/monarchmoney-ts#readme",
+  "dependencies": {
+    "crypto-js": "^4.2.0",
+    "dotenv": "^17.2.2",
+    "graphql": "^16.8.1",
+    "graphql-request": "^6.1.0",
+    "node-fetch": "^3.3.2",
+    "otplib": "^12.0.1",
+    "tsx": "^4.20.5"
+  },
+  "devDependencies": {
+    "@types/crypto-js": "^4.2.1",
+    "@types/jest": "^29.5.8",
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.1",
+    "@typescript-eslint/parser": "^6.13.1",
+    "eslint": "^8.54.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.1",
+    "jest": "^29.7.0",
+    "prettier": "^3.1.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.3.2"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.esm.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ]
+}
