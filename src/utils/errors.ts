@@ -92,6 +92,22 @@ export class MonarchMFARequiredError extends MonarchAuthError {
   }
 }
 
+export class MonarchCaptchaRequiredError extends MonarchAuthError {
+  constructor(message: string = 'CAPTCHA verification required') {
+    super(message)
+    this.name = 'MonarchCaptchaRequiredError'
+    this.code = 'CAPTCHA_REQUIRED'
+  }
+}
+
+export class MonarchIPBlockedError extends MonarchAuthError {
+  constructor(message: string = 'IP address has been temporarily blocked') {
+    super(message)
+    this.name = 'MonarchIPBlockedError'
+    this.code = 'IP_BLOCKED'
+  }
+}
+
 export class MonarchConfigError extends MonarchError {
   constructor(message: string, details?: unknown) {
     super(message, 'CONFIG_ERROR', details)

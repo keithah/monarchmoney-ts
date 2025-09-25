@@ -106,9 +106,10 @@ describe('Integration Tests', () => {
     it.skip('should fetch transactions', async () => {
       if (!hasCredentials) return
 
-      const transactions = await client.transactions.getAll({
+      const result = await client.transactions.getTransactions({
         limit: 10
       })
+      const transactions = result.transactions
       
       expect(Array.isArray(transactions)).toBe(true)
       expect(transactions.length).toBeLessThanOrEqual(10)
@@ -125,10 +126,11 @@ describe('Integration Tests', () => {
     it.skip('should search transactions', async () => {
       if (!hasCredentials) return
 
-      const transactions = await client.transactions.getAll({
+      const result = await client.transactions.getTransactions({
         limit: 5,
-        search: 'coffee'
+        searchText: 'coffee'
       })
+      const transactions = result.transactions
       
       expect(Array.isArray(transactions)).toBe(true)
     }, 30000)
@@ -148,7 +150,8 @@ describe('Integration Tests', () => {
     it.skip('should fetch budgets', async () => {
       if (!hasCredentials) return
 
-      const budgets = await client.budgets.getAll()
+      const result = await client.budgets.getBudgets()
+      const budgets = result.budgetData || []
       expect(Array.isArray(budgets)).toBe(true)
       
       if (budgets.length > 0) {

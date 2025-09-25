@@ -2,12 +2,15 @@ import * as readline from 'readline'
 import * as totp from 'otplib'
 import fetch from 'node-fetch'
 import { SessionStorage } from './SessionStorage'
+import { CaptchaHandler } from './CaptchaHandler'
 import { 
   validateLoginCredentials, 
   validateMFACredentials, 
   logger,
   MonarchAuthError,
   MonarchMFARequiredError,
+  MonarchCaptchaRequiredError,
+  MonarchIPBlockedError,
   MonarchSessionExpiredError,
   handleHTTPResponse,
   retryWithBackoff,
@@ -21,6 +24,8 @@ export interface LoginOptions {
   useSavedSession?: boolean
   saveSession?: boolean
   mfaSecretKey?: string
+  interactive?: boolean  // Whether to prompt user for CAPTCHA resolution
+  maxCaptchaRetries?: number  // Maximum retries after CAPTCHA
 }
 
 export interface MFAOptions {
@@ -59,7 +64,9 @@ export class AuthenticationService {
       password,
       useSavedSession = true,
       saveSession = true,
-      mfaSecretKey
+      mfaSecretKey,
+      interactive = true,
+      maxCaptchaRetries = 3
     } = options
 
     // Try to use saved session first
@@ -79,27 +86,75 @@ export class AuthenticationService {
     this.loginInProgress = true
 
     try {
-      // Attempt login with immediate MFA handling (like Python library)
-      const result = await retryWithBackoff(async () => {
-        return this.performLoginWithMFA(email, password, mfaSecretKey)
-      })
+      // Attempt login with CAPTCHA handling
+      let captchaRetryCount = 0
+      let lastError: Error | null = null
 
-      if (result.token) {
-        // Login successful, save session
-        if (saveSession) {
-          this.sessionStorage.saveSession(result.token, {
-            email,
-            userId: result.userId,
-            expiresAt: result.expiresAt,
-            deviceUuid: result.deviceUuid
+      while (captchaRetryCount <= maxCaptchaRetries) {
+        try {
+          // Attempt login with immediate MFA handling (like Python library)
+          const result = await retryWithBackoff(async () => {
+            return this.performLoginWithMFA(email, password, mfaSecretKey)
           })
+
+          if (result.token) {
+            // Login successful, save session
+            if (saveSession) {
+              this.sessionStorage.saveSession(result.token, {
+                email,
+                userId: result.userId,
+                expiresAt: result.expiresAt,
+                deviceUuid: result.deviceUuid
+              })
+            }
+            logger.info('Login successful')
+            return
+          } else {
+            throw new MonarchMFARequiredError('Multi-factor authentication required but no MFA secret provided')
+          }
+
+        } catch (error) {
+          if (error instanceof MonarchCaptchaRequiredError) {
+            captchaRetryCount++
+            lastError = error
+            
+            if (captchaRetryCount > maxCaptchaRetries) {
+              logger.error(`CAPTCHA retries exhausted after ${maxCaptchaRetries} attempts`)
+              throw error
+            }
+
+            logger.warn(`CAPTCHA required (attempt ${captchaRetryCount}/${maxCaptchaRetries})`)
+            
+            try {
+              await CaptchaHandler.handleCaptchaRequired(interactive)
+              
+              // Wait before retrying
+              const delay = CaptchaHandler.getCaptchaRetryDelay(captchaRetryCount)
+              logger.info(`Waiting ${delay}ms before retry...`)
+              await new Promise(resolve => setTimeout(resolve, delay))
+              
+              // Continue to next attempt
+              continue
+              
+            } catch (captchaError) {
+              // User declined to handle CAPTCHA or non-interactive mode
+              throw captchaError
+            }
+          } else {
+            // Non-CAPTCHA error, throw immediately
+            logger.error('Login failed', error)
+            throw error
+          }
         }
-        logger.info('Login successful')
-      } else {
-        throw new MonarchMFARequiredError('Multi-factor authentication required but no MFA secret provided')
       }
+
+      // If we get here, all retries failed
+      throw lastError || new MonarchAuthError('Login failed after retries')
+
     } catch (error) {
-      logger.error('Login failed', error)
+      if (!(error instanceof MonarchCaptchaRequiredError)) {
+        logger.error('Login failed', error)
+      }
       throw error
     } finally {
       // Always clear the login progress flag
@@ -356,12 +411,41 @@ export class AuthenticationService {
     })
     logger.debug(`Authentication response status: ${response.status} ${response.statusText}`)
     
-    // Handle 403 MFA requirement (only if no MFA secret was provided)
-    if (response.status === 403 && !mfaSecretKey) {
-      throw new MonarchMFARequiredError('Multi-factor authentication required')
-    }
+    // Check for specific error responses first
+    if (response.status >= 400) {
+      let errorData: any
+      try {
+        const errorText = await response.text()
+        errorData = JSON.parse(errorText)
+      } catch (e) {
+        // If we can't parse the response, fall back to generic error handling
+        handleHTTPResponse(response)
+        return { token: undefined }
+      }
 
-    handleHTTPResponse(response)
+      // Handle specific error responses
+      if (errorData.error_code === 'CAPTCHA_REQUIRED' || errorData.detail?.includes('CAPTCHA')) {
+        throw new MonarchCaptchaRequiredError(
+          'CAPTCHA verification required. Please log in through the web interface first to clear this requirement.'
+        )
+      }
+
+      // Handle "Shall Not Pass" IP blocking
+      if (errorData.You === 'Shall Not Pass' || errorData.detail?.includes('Shall Not Pass') || 
+          response.headers.get('you') === 'Shall Not Pass') {
+        throw new MonarchIPBlockedError(
+          'Your IP address has been temporarily blocked. Please wait some time before trying again, or try from a different network/IP address.'
+        )
+      }
+
+      // Handle 403 MFA requirement (only if no MFA secret was provided)
+      if (response.status === 403 && !mfaSecretKey) {
+        throw new MonarchMFARequiredError('Multi-factor authentication required')
+      }
+
+      // Fall back to generic HTTP error handling
+      handleHTTPResponse(response)
+    }
     
     const data = await response.json() as {
       token?: string
@@ -421,7 +505,41 @@ export class AuthenticationService {
       })
     })
 
-    handleHTTPResponse(response)
+    // Check for specific error responses first (same as performLoginWithMFA)
+    if (response.status >= 400) {
+      let errorData: any
+      try {
+        const errorText = await response.text()
+        errorData = JSON.parse(errorText)
+      } catch (e) {
+        // If we can't parse the response, fall back to generic error handling
+        handleHTTPResponse(response)
+        throw new MonarchAuthError('MFA authentication failed')
+      }
+
+      // Handle CAPTCHA requirement specifically
+      if (errorData.error_code === 'CAPTCHA_REQUIRED' || errorData.detail?.includes('CAPTCHA')) {
+        throw new MonarchCaptchaRequiredError(
+          'CAPTCHA verification required. Please log in through the web interface first to clear this requirement.'
+        )
+      }
+
+      // Handle "Shall Not Pass" IP blocking
+      if (errorData.You === 'Shall Not Pass' || errorData.detail?.includes('Shall Not Pass') || 
+          response.headers.get('you') === 'Shall Not Pass') {
+        throw new MonarchIPBlockedError(
+          'Your IP address has been temporarily blocked. Please wait some time before trying again, or try from a different network/IP address.'
+        )
+      }
+
+      // Handle 403 MFA requirement
+      if (response.status === 403) {
+        throw new MonarchMFARequiredError('Multi-factor authentication required or invalid MFA code')
+      }
+
+      // Fall back to generic HTTP error handling
+      handleHTTPResponse(response)
+    }
     
     const data = await response.json() as {
       token?: string
