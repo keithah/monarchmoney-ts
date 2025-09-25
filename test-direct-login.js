@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
-// Simple authentication test script
+// Test the new direct login method
 const { MonarchClient } = require('./dist/cjs/index.js')
 require('dotenv/config')
 
-async function testAuth() {
-  console.log('🔑 Testing MonarchMoney authentication...')
+async function testDirectLogin() {
+  console.log('🎯 Testing MonarchMoney direct login method...')
   
   if (!process.env.MONARCH_EMAIL || !process.env.MONARCH_PASSWORD || !process.env.MONARCH_MFA_SECRET) {
     console.error('❌ Missing credentials in .env file')
@@ -19,17 +19,16 @@ async function testAuth() {
   })
 
   try {
-    console.log('📧 Logging in with email:', process.env.MONARCH_EMAIL)
+    console.log('📧 Testing direct login with email:', process.env.MONARCH_EMAIL)
     
-    await client.login({
+    await client.directLogin({
       email: process.env.MONARCH_EMAIL,
       password: process.env.MONARCH_PASSWORD,
       mfaSecretKey: process.env.MONARCH_MFA_SECRET,
-      useSavedSession: false,
       saveSession: false
     })
 
-    console.log('✅ Authentication successful!')
+    console.log('✅ Direct login successful!')
     
     const sessionInfo = client.getSessionInfo()
     console.log('📊 Session info:')
@@ -49,10 +48,13 @@ async function testAuth() {
       console.log('  - Balance:', accounts[0].currentBalance)
     }
 
+    console.log('🎉 All tests passed!')
+
   } catch (error) {
-    console.error('❌ Authentication failed:', error.message)
+    console.error('❌ Direct login failed:', error.message)
     console.error('Error code:', error.code)
-    console.error('Error details:', error.details)
+    console.error('Error type:', error.constructor.name)
+    
     if (error.stack) {
       console.error('Stack trace:', error.stack)
     }
@@ -60,9 +62,9 @@ async function testAuth() {
   }
 }
 
-testAuth().then(() => {
-  console.log('🎉 Test completed successfully!')
+testDirectLogin().then(() => {
+  console.log('\n🏁 Direct login test completed successfully!')
 }).catch(error => {
-  console.error('💥 Test failed:', error)
+  console.error('💥 Direct login test failed:', error)
   process.exit(1)
 })

@@ -411,27 +411,30 @@ export class AuthenticationService {
     })
     logger.debug(`Authentication response status: ${response.status} ${response.statusText}`)
     
+    // Get response text once to avoid consuming the stream multiple times
+    const responseText = await response.text()
+    let data: any
+    
+    try {
+      data = JSON.parse(responseText)
+    } catch (e) {
+      // If we can't parse the response as JSON, handle as generic HTTP error
+      logger.error('Failed to parse login response as JSON:', responseText)
+      handleHTTPResponse(response)
+      return { token: undefined }
+    }
+
     // Check for specific error responses first
     if (response.status >= 400) {
-      let errorData: any
-      try {
-        const errorText = await response.text()
-        errorData = JSON.parse(errorText)
-      } catch (e) {
-        // If we can't parse the response, fall back to generic error handling
-        handleHTTPResponse(response)
-        return { token: undefined }
-      }
-
       // Handle specific error responses
-      if (errorData.error_code === 'CAPTCHA_REQUIRED' || errorData.detail?.includes('CAPTCHA')) {
+      if (data.error_code === 'CAPTCHA_REQUIRED' || data.detail?.includes('CAPTCHA')) {
         throw new MonarchCaptchaRequiredError(
           'CAPTCHA verification required. Please log in through the web interface first to clear this requirement.'
         )
       }
 
       // Handle "Shall Not Pass" IP blocking
-      if (errorData.You === 'Shall Not Pass' || errorData.detail?.includes('Shall Not Pass') || 
+      if (data.You === 'Shall Not Pass' || data.detail?.includes('Shall Not Pass') || 
           response.headers.get('you') === 'Shall Not Pass') {
         throw new MonarchIPBlockedError(
           'Your IP address has been temporarily blocked. Please wait some time before trying again, or try from a different network/IP address.'
@@ -447,20 +450,22 @@ export class AuthenticationService {
       handleHTTPResponse(response)
     }
     
-    const data = await response.json() as {
+    // Success case - parse the data as login response
+    const loginResponse = data as {
       token?: string
+      id?: string
       user?: { id: string }
       expires_at?: string
     }
 
-    if (!data.token) {
+    if (!loginResponse.token) {
       throw new MonarchAuthError('Login failed - no token received')
     }
 
     return {
-      token: data.token,
-      userId: data.user?.id,
-      expiresAt: data.expires_at ? new Date(data.expires_at).getTime() : undefined,
+      token: loginResponse.token,
+      userId: loginResponse.id || loginResponse.user?.id,
+      expiresAt: loginResponse.expires_at ? new Date(loginResponse.expires_at).getTime() : undefined,
       deviceUuid
     }
   }
@@ -505,27 +510,30 @@ export class AuthenticationService {
       })
     })
 
-    // Check for specific error responses first (same as performLoginWithMFA)
-    if (response.status >= 400) {
-      let errorData: any
-      try {
-        const errorText = await response.text()
-        errorData = JSON.parse(errorText)
-      } catch (e) {
-        // If we can't parse the response, fall back to generic error handling
-        handleHTTPResponse(response)
-        throw new MonarchAuthError('MFA authentication failed')
-      }
+    // Get response text once to avoid consuming the stream multiple times
+    const responseText = await response.text()
+    let data: any
+    
+    try {
+      data = JSON.parse(responseText)
+    } catch (e) {
+      // If we can't parse the response as JSON, handle as generic HTTP error
+      logger.error('Failed to parse MFA response as JSON:', responseText)
+      handleHTTPResponse(response)
+      throw new MonarchAuthError('MFA authentication failed')
+    }
 
+    // Check for specific error responses first
+    if (response.status >= 400) {
       // Handle CAPTCHA requirement specifically
-      if (errorData.error_code === 'CAPTCHA_REQUIRED' || errorData.detail?.includes('CAPTCHA')) {
+      if (data.error_code === 'CAPTCHA_REQUIRED' || data.detail?.includes('CAPTCHA')) {
         throw new MonarchCaptchaRequiredError(
           'CAPTCHA verification required. Please log in through the web interface first to clear this requirement.'
         )
       }
 
       // Handle "Shall Not Pass" IP blocking
-      if (errorData.You === 'Shall Not Pass' || errorData.detail?.includes('Shall Not Pass') || 
+      if (data.You === 'Shall Not Pass' || data.detail?.includes('Shall Not Pass') || 
           response.headers.get('you') === 'Shall Not Pass') {
         throw new MonarchIPBlockedError(
           'Your IP address has been temporarily blocked. Please wait some time before trying again, or try from a different network/IP address.'
@@ -541,20 +549,22 @@ export class AuthenticationService {
       handleHTTPResponse(response)
     }
     
-    const data = await response.json() as {
+    // Success case - parse the data as MFA response
+    const mfaResponse = data as {
       token?: string
+      id?: string
       user?: { id: string }
       expires_at?: string
     }
 
-    if (!data.token) {
+    if (!mfaResponse.token) {
       throw new MonarchAuthError('MFA authentication failed - no token received')
     }
 
     return {
-      token: data.token,
-      userId: data.user?.id,
-      expiresAt: data.expires_at ? new Date(data.expires_at).getTime() : undefined,
+      token: mfaResponse.token,
+      userId: mfaResponse.id || mfaResponse.user?.id,
+      expiresAt: mfaResponse.expires_at ? new Date(mfaResponse.expires_at).getTime() : undefined,
       deviceUuid
     }
   }
