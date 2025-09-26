@@ -1,6 +1,6 @@
 import { AuthenticationService } from '../src/client/auth/AuthenticationService'
 import { SessionStorage } from '../src/client/auth/SessionStorage'
-import { MonarchAuthError, MonarchMFARequiredError } from '../src/utils'
+import { MonarchAuthError } from '../src/utils'
 
 describe('AuthenticationService', () => {
   let authService: AuthenticationService
