@@ -1,5 +1,13 @@
 import { MonarchValidationError } from './errors'
 
+export function validateRequired(params: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === '') {
+      throw new MonarchValidationError(`${key} is required`, key)
+    }
+  }
+}
+
 export function validateEmail(email: string): void {
   if (!email) {
     throw new MonarchValidationError('Email is required', 'email')

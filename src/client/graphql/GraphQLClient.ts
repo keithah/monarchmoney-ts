@@ -23,7 +23,16 @@ export class GraphQLClient {
   private cache?: MultiLevelCache
   private timeout: number
   private lastRequestTime = 0
-  private readonly minRequestInterval = 100 // 100ms like Python library
+  private readonly minRequestInterval = 250 // 250ms for more human-like behavior
+  private readonly burstLimit = 5 // Max requests in burst
+  private requestTimes: number[] = []
+  
+  // Enhanced performance features
+  private requestDeduplication = new Map<string, Promise<unknown>>()
+  private requestQueue: Array<{ resolve: Function; reject: Function; execute: Function }> = []
+  private isProcessingQueue = false
+  private readonly maxConcurrentRequests = 3
+  private activeRequestCount = 0
 
   constructor(
     baseUrl: string,
@@ -62,18 +71,36 @@ export class GraphQLClient {
       }
     }
 
-    // Execute query
-    const result = await retryWithBackoff(async () => {
-      return this.executeQuery<T>(query, variables, timeout)
-    }, retries)
-
-    // Cache result
-    if (cacheKey && this.cache && result) {
-      this.cache.set(cacheKey, result, cacheTTL)
-      logger.debug(`GraphQL cache SET: ${cacheKey}`)
+    // Request deduplication - check if identical request is in progress
+    const deduplicationKey = this.generateCacheKey('query', query, variables)
+    if (this.requestDeduplication.has(deduplicationKey)) {
+      logger.debug(`Request deduplication HIT: ${deduplicationKey}`)
+      return this.requestDeduplication.get(deduplicationKey) as Promise<T>
     }
 
-    return result
+    // Create and store deduplication promise
+    const requestPromise = this.executeWithQueue<T>(async () => {
+      return retryWithBackoff(async () => {
+        return this.executeQuery<T>(query, variables, timeout)
+      }, retries)
+    })
+
+    this.requestDeduplication.set(deduplicationKey, requestPromise)
+
+    try {
+      const result = await requestPromise
+
+      // Cache result
+      if (cacheKey && this.cache && result) {
+        this.cache.set(cacheKey, result, cacheTTL)
+        logger.debug(`GraphQL cache SET: ${cacheKey}`)
+      }
+
+      return result
+    } finally {
+      // Clean up deduplication entry
+      this.requestDeduplication.delete(deduplicationKey)
+    }
   }
 
   async mutation<T = unknown>(
@@ -83,9 +110,12 @@ export class GraphQLClient {
   ): Promise<T> {
     const { timeout = this.timeout, retries = 3 } = options
 
-    const result = await retryWithBackoff(async () => {
-      return this.executeQuery<T>(mutation, variables, timeout)
-    }, retries)
+    // Execute mutation with queue management
+    const result = await this.executeWithQueue<T>(async () => {
+      return retryWithBackoff(async () => {
+        return this.executeQuery<T>(mutation, variables, timeout)
+      }, retries)
+    })
 
     // Invalidate related cache entries for mutations
     if (this.cache) {
@@ -97,14 +127,36 @@ export class GraphQLClient {
 
   private async rateLimit(): Promise<void> {
     const now = Date.now()
-    const timeSinceLastRequest = now - this.lastRequestTime
     
+    // Clean old request times (older than 1 minute)
+    this.requestTimes = this.requestTimes.filter(time => now - time < 60000)
+    
+    // Check burst limit - if we've made too many requests recently, wait longer
+    if (this.requestTimes.length >= this.burstLimit) {
+      const oldestRecentRequest = Math.min(...this.requestTimes)
+      const waitTime = 60000 - (now - oldestRecentRequest) + 100 // Wait until burst window resets
+      if (waitTime > 0) {
+        logger.debug(`Rate limit burst protection: waiting ${waitTime}ms`)
+        await new Promise(resolve => setTimeout(resolve, waitTime))
+      }
+    }
+    
+    // Standard rate limiting
+    const timeSinceLastRequest = now - this.lastRequestTime
     if (timeSinceLastRequest < this.minRequestInterval) {
       const sleepTime = this.minRequestInterval - timeSinceLastRequest
+      logger.debug(`Rate limit: waiting ${sleepTime}ms`)
       await new Promise(resolve => setTimeout(resolve, sleepTime))
     }
     
+    // Add some randomness to make it more human-like (±50ms)
+    const jitter = Math.random() * 100 - 50
+    if (jitter > 0) {
+      await new Promise(resolve => setTimeout(resolve, jitter))
+    }
+    
     this.lastRequestTime = Date.now()
+    this.requestTimes.push(this.lastRequestTime)
   }
 
   private async executeQuery<T>(
@@ -349,8 +401,121 @@ export class GraphQLClient {
     logger.debug('GraphQL cache cleared')
   }
 
-  // Get cache statistics
+  // Execute request with concurrency control and queue management
+  private async executeWithQueue<T>(execute: () => Promise<T>): Promise<T> {
+    // If under concurrency limit, execute immediately
+    if (this.activeRequestCount < this.maxConcurrentRequests) {
+      this.activeRequestCount++
+      try {
+        const result = await execute()
+        return result
+      } finally {
+        this.activeRequestCount--
+        // Process queued requests
+        this.processQueue()
+      }
+    }
+
+    // Otherwise queue the request
+    return new Promise<T>((resolve, reject) => {
+      this.requestQueue.push({
+        resolve,
+        reject,
+        execute: async () => {
+          try {
+            const result = await execute()
+            resolve(result)
+          } catch (error) {
+            reject(error)
+          }
+        }
+      })
+    })
+  }
+
+  private processQueue(): void {
+    if (this.isProcessingQueue || this.requestQueue.length === 0) {
+      return
+    }
+
+    this.isProcessingQueue = true
+
+    // Process requests while under concurrency limit
+    while (this.requestQueue.length > 0 && this.activeRequestCount < this.maxConcurrentRequests) {
+      const request = this.requestQueue.shift()
+      if (request) {
+        this.activeRequestCount++
+        
+        // Execute request asynchronously
+        request.execute().finally(() => {
+          this.activeRequestCount--
+          // Continue processing queue
+          setImmediate(() => this.processQueue())
+        })
+      }
+    }
+
+    this.isProcessingQueue = false
+  }
+
+  // Advanced analytics for performance monitoring
+  getPerformanceStats(): {
+    cacheStats: ReturnType<MultiLevelCache['getStats']> | null
+    requestStats: {
+      activeRequests: number
+      queuedRequests: number
+      deduplicatedRequests: number
+      averageRequestInterval: number
+      burstProtectionEngagements: number
+    }
+  } {
+    // Calculate average request interval from recent requests
+    const recentRequests = this.requestTimes.slice(-10)
+    let averageInterval = 0
+    if (recentRequests.length > 1) {
+      const intervals = []
+      for (let i = 1; i < recentRequests.length; i++) {
+        intervals.push(recentRequests[i] - recentRequests[i - 1])
+      }
+      averageInterval = intervals.reduce((sum, interval) => sum + interval, 0) / intervals.length
+    }
+
+    return {
+      cacheStats: this.cache?.getStats() || null,
+      requestStats: {
+        activeRequests: this.activeRequestCount,
+        queuedRequests: this.requestQueue.length,
+        deduplicatedRequests: this.requestDeduplication.size,
+        averageRequestInterval: Math.round(averageInterval),
+        burstProtectionEngagements: 0 // Could add counter for this
+      }
+    }
+  }
+
+  // Get cache statistics (backward compatibility)
   getCacheStats(): ReturnType<MultiLevelCache['getStats']> | null {
     return this.cache?.getStats() || null
+  }
+
+  // Preload common queries for better performance
+  async preloadCommonQueries(): Promise<void> {
+    const commonQueries = [
+      { query: 'query GetMe { me { id email displayName } }' },
+      { query: 'query GetCategories { categories { id name icon } }' },
+      { query: 'query GetAccounts { accounts { id displayName displayType } }' }
+    ]
+
+    logger.debug('Preloading common queries for better performance...')
+    
+    const preloadPromises = commonQueries.map(({ query }) => 
+      this.query(query, {}, { cache: true, cacheTTL: 300000 }) // 5 min cache
+        .catch(error => {
+          logger.debug(`Preload failed for query: ${error.message}`)
+          return null
+        })
+    )
+
+    await Promise.allSettled(preloadPromises)
+    logger.debug('Common queries preloaded')
   }
 }

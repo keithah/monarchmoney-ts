@@ -40,14 +40,10 @@ export class AccountsAPIImpl implements AccountsAPI {
 
     try {
       const response = await this.graphql.query<{
-        accounts: {
-          edges: Array<{
-            node: Account
-          }>
-        }
+        accounts: Account[]
       }>(GET_ACCOUNTS, {}, { cache: true, cacheTTL: 300000 }) // 5 minutes
 
-      const accounts = response.accounts.edges.map(edge => edge.node)
+      const accounts = response.accounts
 
       // Filter out hidden accounts if requested
       if (!options.includeHidden) {
