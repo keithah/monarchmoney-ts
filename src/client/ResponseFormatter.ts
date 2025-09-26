@@ -11,9 +11,10 @@ export class ResponseFormatter {
    */
   static formatAccounts(accounts: any[], verbosity: VerbosityLevel): string {
     switch (verbosity) {
-      case 'ultra-light':
+      case 'ultra-light': {
         const total = accounts.reduce((sum, acc) => sum + (acc.currentBalance || 0), 0);
         return `💰 ${accounts.length} accounts, Total: $${total.toLocaleString()}`;
+      }
 
       case 'light':
         return accounts.map(acc => {
@@ -37,9 +38,10 @@ export class ResponseFormatter {
     const header = originalQuery ? `🧠 **Smart Query**: "${originalQuery}"\n\n` : '';
 
     switch (verbosity) {
-      case 'ultra-light':
+      case 'ultra-light': {
         const total = transactions.reduce((sum, txn) => sum + Math.abs(txn.amount), 0);
         return `${header}💳 ${transactions.length} transactions, Volume: $${total.toLocaleString()}`;
+      }
 
       case 'light':
         return header + transactions.map(txn => {
