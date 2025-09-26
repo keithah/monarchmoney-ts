@@ -34,7 +34,7 @@ jobs:
     - name: Run linting
       run: npm run lint -- --max-warnings 20
 
-    - name: Run unit tests (ESM fixed)
+    - name: Run unit tests
       run: npm run test:unit
 
     - name: Run tests with coverage
