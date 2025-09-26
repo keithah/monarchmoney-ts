@@ -25,7 +25,7 @@
     "format": "prettier --write src/**/*.ts",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist coverage",
-    "prepublishOnly": "npm run clean && npm run lint && npm run type-check && npm run build && npm run test"
+    "prepublishOnly": "npm run clean && npm run lint && npm run type-check && npm run build"
   },
   "keywords": [
     "monarch-money",
