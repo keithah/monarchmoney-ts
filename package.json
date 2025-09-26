@@ -1,6 +1,6 @@
 {
   "name": "monarchmoney",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "description": "TypeScript/JavaScript library for interacting with Monarch Money's GraphQL API",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -25,7 +25,7 @@
     "format": "prettier --write src/**/*.ts",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist coverage",
-    "prepublishOnly": "npm run clean && npm run lint && npm run type-check && npm run build"
+    "prepublishOnly": "npm run clean && npm run lint -- --max-warnings 20 && npm run type-check && npm run build"
   },
   "keywords": [
     "monarch-money",
