@@ -314,4 +314,4 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 **Transform your financial data into AI-friendly insights** 💰🤖
 
-*Perfect for Claude Desktop, MCP servers, and other AI assistant integrations requiring optimized context usage.*
+*Perfect for Claude Desktop, MCP servers, and other AI assistant integrations requiring optimized context usage.*# CI Test
