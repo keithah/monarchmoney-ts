@@ -32,7 +32,7 @@ jobs:
       run: npm run type-check
 
     - name: Run linting
-      run: npm run lint
+      run: npm run lint -- --max-warnings 20
 
     - name: Run unit tests (ESM fixed)
       run: npm run test:unit
