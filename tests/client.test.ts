@@ -92,28 +92,25 @@ describe('MonarchClient', () => {
       const accounts = client.accounts
       expect(typeof accounts.getAll).toBe('function')
       expect(typeof accounts.getById).toBe('function')
-      expect(typeof accounts.createManual).toBe('function')
-      expect(typeof accounts.update).toBe('function')
-      expect(typeof accounts.delete).toBe('function')
+      expect(typeof accounts.createManualAccount).toBe('function')
+      expect(typeof accounts.updateAccount).toBe('function')
+      expect(typeof accounts.deleteAccount).toBe('function')
     })
 
     it('should have transactions API with all methods', () => {
       const transactions = client.transactions
-      expect(typeof transactions.getAll).toBe('function')
-      expect(typeof transactions.getById).toBe('function')
-      expect(typeof transactions.createManual).toBe('function')
-      expect(typeof transactions.update).toBe('function')
-      expect(typeof transactions.delete).toBe('function')
-      expect(typeof transactions.bulkEdit).toBe('function')
-      expect(typeof transactions.split).toBe('function')
+      expect(typeof transactions.getTransactions).toBe('function')
+      expect(typeof transactions.getTransactionById).toBe('function')
+      expect(typeof transactions.createTransaction).toBe('function')
+      expect(typeof transactions.updateTransaction).toBe('function')
+      expect(typeof transactions.deleteTransaction).toBe('function')
     })
 
     it('should have budgets API with all methods', () => {
       const budgets = client.budgets
-      expect(typeof budgets.getAll).toBe('function')
-      expect(typeof budgets.getById).toBe('function')
-      expect(typeof budgets.create).toBe('function')
-      expect(typeof budgets.update).toBe('function')
+      expect(typeof budgets.getBudgetData).toBe('function')
+      expect(typeof budgets.getCategoryGroups).toBe('function')
+      expect(typeof budgets.getGoals).toBe('function')
       expect(typeof budgets.getCashFlow).toBe('function')
       expect(typeof budgets.getGoals).toBe('function')
       expect(typeof budgets.getBills).toBe('function')

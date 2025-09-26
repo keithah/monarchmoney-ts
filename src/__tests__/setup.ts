@@ -1,5 +1,11 @@
 // Jest setup file
-global.fetch = require('node-fetch')
+import { jest } from '@jest/globals'
+
+// Mock node-fetch for testing
+jest.mock('node-fetch', () => ({
+  __esModule: true,
+  default: jest.fn()
+}))
 
 // Mock console methods in tests to reduce noise
 const originalConsoleDebug = console.debug
