@@ -202,6 +202,7 @@ export function isValidUUID(uuid: string): boolean {
 }
 
 export function sanitizeString(input: string): string {
+  // eslint-disable-next-line no-control-regex
   return input.trim().replace(/[\x00-\x1f\x7f-\x9f]/g, '')
 }
 
