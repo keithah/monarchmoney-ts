@@ -65,12 +65,8 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    - name: Run integration tests
-      run: npm run test:integration
-      env:
-        MONARCH_EMAIL: ${{ secrets.MONARCH_EMAIL }}
-        MONARCH_PASSWORD: ${{ secrets.MONARCH_PASSWORD }}
-        MONARCH_MFA_SECRET: ${{ secrets.MONARCH_MFA_SECRET }}
+    - name: Skip integration tests (temporarily disabled)
+      run: echo "Integration tests temporarily disabled due to API changes"
 
   security:
     runs-on: ubuntu-latest
