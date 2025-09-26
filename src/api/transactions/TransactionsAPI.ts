@@ -222,95 +222,126 @@ export class TransactionsAPIImpl implements TransactionsAPI {
       validateDateRange(startDate, endDate)
     }
 
+    // Build filters object for web app compatibility
+    const filters: any = {
+      transactionVisibility: 'non_hidden_transactions_only'
+    }
+
+    if (startDate) filters.startDate = startDate
+    if (endDate) filters.endDate = endDate
+    if (categoryIds && categoryIds.length > 0) filters.categoryIds = categoryIds
+    if (accountIds && accountIds.length > 0) filters.accountIds = accountIds
+    if (tagIds && tagIds.length > 0) filters.tagIds = tagIds
+    if (merchantIds && merchantIds.length > 0) filters.merchantIds = merchantIds
+    if (search) filters.search = search
+    if (isCredit !== undefined) filters.isCredit = isCredit
+    if (absAmountRange) {
+      if (absAmountRange[0] !== undefined) filters.minAmount = absAmountRange[0]
+      if (absAmountRange[1] !== undefined) filters.maxAmount = absAmountRange[1]
+    }
+
     const variables = {
       limit,
       offset,
-      ...(startDate && { startDate }),
-      ...(endDate && { endDate }),
-      ...(categoryIds && { categoryIds }),
-      ...(accountIds && { accountIds }),
-      ...(tagIds && { tagIds }),
-      ...(merchantIds && { merchantIds }),
-      ...(search && { search }),
-      ...(isCredit !== undefined && { isCredit }),
-      ...(absAmountRange && { absAmountRange })
+      filters,
+      orderBy: 'date'
     }
 
     logger.debug('Getting transactions with options:', variables)
 
+    // FIXED: Use exact working query from MonarchMoney web app
     const query = `
-      query GetTransactionsList(
-        $limit: Int
-        $offset: Int
-        $startDate: String
-        $endDate: String
-        $categoryIds: [String]
-        $accountIds: [String]
-        $tagIds: [String]
-        $merchantIds: [String]
-        $search: String
-        $isCredit: Boolean
-        $absAmountRange: [Float]
-      ) {
-        allTransactions(
-          limit: $limit
-          offset: $offset
-          startDate: $startDate
-          endDate: $endDate
-          categoryIds: $categoryIds
-          accountIds: $accountIds
-          tagIds: $tagIds
-          merchantIds: $merchantIds
-          search: $search
-          isCredit: $isCredit
-          absAmountRange: $absAmountRange
-        ) {
+      query Web_GetTransactionsList($offset: Int, $limit: Int, $filters: TransactionFilterInput, $orderBy: TransactionOrdering) {
+        allTransactions(filters: $filters) {
           totalCount
-          results {
+          totalSelectableCount
+          results(offset: $offset, limit: $limit, orderBy: $orderBy) {
             id
-            amount
-            date
-            merchant {
-              name
-            }
-            category {
-              id
-              name
-              icon
-              color
-            }
-            account {
-              id
-              displayName
-              type {
-                name
-              }
-            }
-            tags {
-              id
-              name
-              color
-            }
-            isRecurring
-            reviewStatus
-            notes
-            originalDescription
-            needsReview
-            dataProvider
-            dataProviderDescription
-            isHide
-            importIdentifier
+            ...TransactionOverviewFields
+            __typename
           }
+          __typename
         }
+        transactionRules {
+          id
+          __typename
+        }
+      }
+
+      fragment TransactionOverviewFields on Transaction {
+        id
+        amount
+        pending
+        date
+        hideFromReports
+        hiddenByAccount
+        plaidName
+        notes
+        isRecurring
+        reviewStatus
+        needsReview
+        isSplitTransaction
+        dataProviderDescription
+        attachments {
+          id
+          __typename
+        }
+        goal {
+          id
+          name
+          __typename
+        }
+        category {
+          id
+          name
+          icon
+          group {
+            id
+            type
+            __typename
+          }
+          __typename
+        }
+        merchant {
+          name
+          id
+          transactionsCount
+          logoUrl
+          recurringTransactionStream {
+            frequency
+            isActive
+            __typename
+          }
+          __typename
+        }
+        tags {
+          id
+          name
+          color
+          order
+          __typename
+        }
+        account {
+          id
+          displayName
+          icon
+          logoUrl
+          __typename
+        }
+        __typename
       }
     `
 
     const data = await this.graphql.query<{
       allTransactions: {
         totalCount: number
+        totalSelectableCount: number
         results: Transaction[]
       }
+      transactionRules: Array<{ id: string }>
     }>(query, variables)
+
+    logger.debug(`Retrieved ${data.allTransactions.results.length} transactions using web app schema`)
 
     return {
       transactions: data.allTransactions.results,

@@ -132,9 +132,21 @@ export interface Transaction {
 export interface TransactionCategory {
   id: string
   name: string
+  displayName?: string
+  shortName?: string
   icon?: string
+  color?: string
   order: number
-  group?: TransactionCategoryGroup
+  isDefault?: boolean
+  isDisabled?: boolean
+  isSystemCategory?: boolean
+  groupId?: string
+  group?: CategoryGroup
+  parentCategoryId?: string
+  parentCategory?: TransactionCategory
+  childCategories?: TransactionCategory[]
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface TransactionCategoryGroup {
@@ -146,8 +158,11 @@ export interface TransactionCategoryGroup {
 export interface TransactionTag {
   id: string
   name: string
-  color: string
-  order: number
+  color?: string
+  order?: number
+  isDefault?: boolean
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface TransactionSplit {
@@ -379,14 +394,40 @@ export interface UpdateAccountInput {
 
 export interface CreateCategoryInput {
   name: string
+  displayName?: string
+  shortName?: string
   icon?: string
+  color?: string
   groupId?: string
+  parentCategoryId?: string
+  order?: number
 }
 
 export interface UpdateCategoryInput {
   name?: string
+  displayName?: string
+  shortName?: string
   icon?: string
+  color?: string
+  groupId?: string
+  parentCategoryId?: string
   order?: number
+  isDisabled?: boolean
+}
+
+export interface CreateTagInput {
+  name: string
+  color?: string
+  order?: number
+}
+
+export interface BulkDeleteResult {
+  deletedCount: number
+  failedCount: number
+  errors?: Array<{
+    id: string
+    message: string
+  }>
 }
 
 export interface CreateGoalInput {
@@ -509,8 +550,15 @@ export interface RuleAction {
 export interface CategoryGroup {
   id: string
   name: string
-  type: string
+  displayName?: string
+  type?: string
+  color?: string
+  icon?: string
+  order?: number
+  isDefault?: boolean
   categories?: TransactionCategory[]
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface BulkUpdateResult {

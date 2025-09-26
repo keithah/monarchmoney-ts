@@ -38,7 +38,7 @@ export class AuthenticationService {
   private baseUrl: string
   private sessionStorage: SessionStorage
   private lastRequestTime = 0
-  private readonly minRequestInterval = 100 // 100ms like Python library
+  private readonly minRequestInterval = 300 // 300ms for more human-like auth requests
   private loginInProgress = false
   constructor(
     baseUrl: string = 'https://api.monarchmoney.com',

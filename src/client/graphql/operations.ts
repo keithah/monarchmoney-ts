@@ -4,43 +4,63 @@
 export const GET_ACCOUNTS = `
   query GetAccounts {
     accounts {
-      edges {
-        node {
-          id
-          displayName
-          syncDisabled
-          deactivatedAt
-          isHidden
-          isAsset
-          includeInNetWorth
-          currentBalance
-          availableBalance
-          dataProvider
-          dataProviderAccountId
-          institutionName
-          mask
-          createdAt
-          updatedAt
-          importedFromMint
-          accountTypeId
-          accountSubtypeId
-          type {
-            id
-            name
-            display
-          }
-          subtype {
-            id
-            name
-            display
-          }
-          credential {
-            id
-            institutionId
-            institutionName
-          }
-        }
+      id
+      displayName
+      syncDisabled
+      deactivatedAt
+      isHidden
+      isAsset
+      mask
+      createdAt
+      updatedAt
+      displayLastUpdatedAt
+      currentBalance
+      displayBalance
+      includeInNetWorth
+      hideFromList
+      hideTransactionsFromReports
+      includeBalanceInNetWorth
+      includeInGoalBalance
+      dataProvider
+      dataProviderAccountId
+      isManual
+      transactionsCount
+      holdingsCount
+      manualInvestmentsTrackingMethod
+      order
+      logoUrl
+      type {
+        name
+        display
+        __typename
       }
+      subtype {
+        name
+        display
+        __typename
+      }
+      credential {
+        id
+        updateRequired
+        disconnectedFromDataProviderAt
+        dataProvider
+        institution {
+          id
+          plaidInstitutionId
+          name
+          status
+          __typename
+        }
+        __typename
+      }
+      institution {
+        id
+        name
+        primaryColor
+        url
+        __typename
+      }
+      __typename
     }
   }
 `
@@ -87,109 +107,56 @@ export const GET_ACCOUNT_DETAILS = `
 
 // Transaction Operations
 export const GET_TRANSACTIONS = `
-  query GetTransactions(
-    $limit: Int,
+  query Web_GetTransactionsList(
     $offset: Int,
-    $startDate: String,
-    $endDate: String,
-    $search: String,
-    $categoryIds: [ID!],
-    $accountIds: [ID!],
-    $tagIds: [ID!],
-    $hasAttachments: Boolean,
-    $hasNotes: Boolean,
-    $hiddenFromReports: Boolean,
-    $isSplit: Boolean,
-    $isRecurring: Boolean,
-    $importedFromMint: Boolean,
-    $syncedFromInstitution: Boolean,
-    $isCredit: Boolean
+    $limit: Int,
+    $filters: TransactionFilterInput,
+    $orderBy: TransactionOrdering
   ) {
-    transactions(
-      first: $limit,
-      offset: $offset,
-      startDate: $startDate,
-      endDate: $endDate,
-      search: $search,
-      categoryIds: $categoryIds,
-      accountIds: $accountIds,
-      tagIds: $tagIds,
-      hasAttachments: $hasAttachments,
-      hasNotes: $hasNotes,
-      hiddenFromReports: $hiddenFromReports,
-      isSplit: $isSplit,
-      isRecurring: $isRecurring,
-      importedFromMint: $importedFromMint,
-      syncedFromInstitution: $syncedFromInstitution,
-      isCredit: $isCredit
-    ) {
-      edges {
-        node {
-          id
-          amount
-          date
-          merchantName
-          categoryId
-          category {
-            id
-            name
-            icon
-            order
-            group {
-              id
-              name
-              type
-            }
-          }
-          accountId
-          account {
-            id
-            displayName
-            institutionName
-            mask
-          }
-          notes
-          isRecurring
-          needsReview
-          reviewedAt
-          createdAt
-          updatedAt
-          importedFromMint
-          plaidTransactionId
-          dataProvider
-          dataProviderTransactionId
-          hasTags
-          tags {
-            id
-            name
-            color
-            order
-          }
-          isHidden
-          hiddenAt
-          isSplit
-          splits {
-            id
-            amount
-            categoryId
-            category {
-              id
-              name
-            }
-            notes
-          }
-          originalDescription
-          isCashIn
-          isCashOut
-        }
-      }
+    allTransactions(filters: $filters) {
       totalCount
-      pageInfo {
-        hasNextPage
-        hasPreviousPage
-        startCursor
-        endCursor
+      totalSelectableCount
+      results(offset: $offset, limit: $limit, orderBy: $orderBy) {
+        id
+        amount
+        pending
+        date
+        hideFromReports
+        plaidName
+        notes
+        isRecurring
+        reviewStatus
+        needsReview
+        attachments {
+          id
+          __typename
+        }
+        isSplitTransaction
+        createdAt
+        updatedAt
+        category {
+          id
+          name
+          __typename
+        }
+        merchant {
+          name
+          id
+          transactionsCount
+          __typename
+        }
+        account {
+          id
+          displayName
+          __typename
+        }
+        __typename
       }
+      __typename
+    }
+    transactionRules {
+      id
+      __typename
     }
   }
 `
@@ -418,17 +385,21 @@ export const DELETE_MANUAL_HOLDING = `
 
 // Category Operations
 export const GET_TRANSACTION_CATEGORIES = `
-  query GetTransactionCategories {
-    transactionCategories {
+  query GetCategories {
+    categories {
       id
       name
-      icon
       order
+      icon
+      isSystemCategory
+      isDisabled
       group {
         id
         name
         type
+        __typename
       }
+      __typename
     }
   }
 `
@@ -521,16 +492,43 @@ export const GET_CASHFLOW = `
 
 // User Profile Operations
 export const GET_ME = `
-  query GetMe {
+  query Common_GetMe {
     me {
       id
+      birthday
       email
-      firstName
-      lastName
+      isSuperuser
+      name
       timezone
-      subscriptionType
-      isMfaEnabled
-      createdAt
+      hasPassword
+      hasMfaOn
+      externalAuthProviderNames
+      pendingEmailUpdateVerification {
+        email
+        __typename
+      }
+      profilePicture {
+        id
+        cloudinaryPublicId
+        thumbnailUrl
+        __typename
+      }
+      profilePictureUrl
+      activeSupportAccountAccessGrant {
+        id
+        createdAt
+        expiresAt
+        __typename
+      }
+      profile {
+        id
+        hasSeenCategoriesManagementTour
+        dismissedTransactionsListUpdatesTourAt
+        viewedMarkAsReviewedUpdatesCalloutAt
+        hasDismissedWhatsNewAt
+        __typename
+      }
+      __typename
     }
   }
 `
@@ -541,20 +539,29 @@ export const GET_INSTITUTIONS = `
     institutions {
       id
       name
-      logo
-      url
+      logo {
+        url
+        __typename
+      }
+      primaryColor
+      __typename
     }
   }
 `
 
 // Merchant Operations
 export const GET_MERCHANTS = `
-  query GetMerchants {
-    merchants {
+  query GetMerchantsSearch($search: String, $limit: Int, $includeIds: [ID!]) {
+    merchants(
+      search: $search
+      limit: $limit
+      orderBy: TRANSACTION_COUNT
+      includeIds: $includeIds
+    ) {
       id
       name
       transactionCount
-      logoUrl
+      __typename
     }
   }
 `

@@ -5,6 +5,11 @@ import { MultiLevelCache } from '../cache'
 import { AccountsAPIImpl } from '../api/accounts'
 import { TransactionsAPIImpl } from '../api/transactions'
 import { BudgetsAPIImpl } from '../api/budgets'
+import { CategoriesAPIImpl } from '../api/categories'
+import { CashflowAPIImpl } from '../api/cashflow'
+import { RecurringAPIImpl } from '../api/recurring'
+import { InstitutionsAPIImpl } from '../api/institutions'
+import { InsightsAPIImpl } from '../api/insights'
 import { 
   getEnvironmentVariable,
   logger,
@@ -56,6 +61,11 @@ export class MonarchClient {
   public accounts: AccountsAPIImpl
   public transactions: TransactionsAPIImpl
   public budgets: BudgetsAPIImpl
+  public categories: CategoriesAPIImpl
+  public cashflow: CashflowAPIImpl
+  public recurring: RecurringAPIImpl
+  public institutions: InstitutionsAPIImpl
+  public insights: InsightsAPIImpl
 
   constructor(config: MonarchConfig = {}) {
     // Merge with defaults and environment variables
@@ -91,6 +101,11 @@ export class MonarchClient {
     this.accounts = new AccountsAPIImpl(this.graphql)
     this.transactions = new TransactionsAPIImpl(this.graphql)
     this.budgets = new BudgetsAPIImpl(this.graphql)
+    this.categories = new CategoriesAPIImpl(this.graphql)
+    this.cashflow = new CashflowAPIImpl(this.graphql)
+    this.recurring = new RecurringAPIImpl(this.graphql)
+    this.institutions = new InstitutionsAPIImpl(this.graphql)
+    this.insights = new InsightsAPIImpl(this.graphql)
 
     logger.info('MonarchClient initialized', {
       baseURL: this.config.baseURL,
@@ -164,6 +179,13 @@ export class MonarchClient {
   }
 
   async ensureValidSession(): Promise<void> {
+    // Check if direct auth has a valid session first
+    const directSession = this.directAuth.getSessionInfo()
+    if (directSession.isValid) {
+      return // Direct auth session is valid
+    }
+    
+    // Fall back to regular auth
     return await this.auth.ensureValidSession()
   }
 
@@ -258,35 +280,87 @@ export class MonarchClient {
   }
 
   async get_me(): Promise<unknown> {
-    const GET_ME = `
-      query GetMe {
+    const GET_ME_QUERY = `
+      query Common_GetMe {
         me {
           id
+          birthday
           email
-          firstName
-          lastName
+          isSuperuser
+          name
           timezone
-          subscriptionType
-          isMfaEnabled
-          createdAt
+          hasPassword
+          hasMfaOn
+          externalAuthProviderNames
+          pendingEmailUpdateVerification {
+            email
+            __typename
+          }
+          profilePicture {
+            id
+            cloudinaryPublicId
+            thumbnailUrl
+            __typename
+          }
+          profilePictureUrl
+          activeSupportAccountAccessGrant {
+            id
+            createdAt
+            expiresAt
+            __typename
+          }
+          profile {
+            id
+            hasSeenCategoriesManagementTour
+            dismissedTransactionsListUpdatesTourAt
+            viewedMarkAsReviewedUpdatesCalloutAt
+            hasDismissedWhatsNewAt
+            __typename
+          }
+          __typename
         }
       }
     `
 
-    const response = await this.graphql.query<{
+    return await this.graphql.query<{
       me: {
         id: string
+        birthday?: string
         email: string
-        firstName?: string
-        lastName?: string
+        isSuperuser?: boolean
+        name?: string
         timezone: string
-        subscriptionType: string
-        isMfaEnabled: boolean
-        createdAt: string
+        hasPassword?: boolean
+        hasMfaOn?: boolean
+        externalAuthProviderNames?: string[]
+        pendingEmailUpdateVerification?: {
+          email: string
+          __typename: string
+        }
+        profilePicture?: {
+          id: string
+          cloudinaryPublicId: string
+          thumbnailUrl: string
+          __typename: string
+        }
+        profilePictureUrl?: string
+        activeSupportAccountAccessGrant?: {
+          id: string
+          createdAt: string
+          expiresAt: string
+          __typename: string
+        }
+        profile?: {
+          id: string
+          hasSeenCategoriesManagementTour?: boolean
+          dismissedTransactionsListUpdatesTourAt?: string
+          viewedMarkAsReviewedUpdatesCalloutAt?: string
+          hasDismissedWhatsNewAt?: string
+          __typename: string
+        }
+        __typename: string
       }
-    }>(GET_ME)
-
-    return response.me
+    }>(GET_ME_QUERY).then(response => response.me)
   }
 
   // Environment detection

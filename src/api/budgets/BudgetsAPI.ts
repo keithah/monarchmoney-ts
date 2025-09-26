@@ -40,9 +40,126 @@ export interface BudgetOptions {
 
 export interface BudgetData {
   budgetSystem: string
-  budgetData: BudgetCategory[]
-  categoryGroups: BudgetCategoryGroup[]
-  goalsV2?: Goal[]
+  budgetData: {
+    monthlyAmountsByCategory: Array<{
+      category: { id: string }
+      monthlyAmounts: Array<{
+        month: string
+        plannedCashFlowAmount: number
+        plannedSetAsideAmount: number
+        actualAmount: number
+        remainingAmount: number
+        previousMonthRolloverAmount: number
+        rolloverType: string
+        cumulativeActualAmount: number
+        rolloverTargetAmount: number
+      }>
+    }>
+    monthlyAmountsByCategoryGroup: Array<{
+      categoryGroup: { id: string }
+      monthlyAmounts: Array<{
+        month: string
+        plannedCashFlowAmount: number
+        plannedSetAsideAmount: number
+        actualAmount: number
+        remainingAmount: number
+        previousMonthRolloverAmount: number
+        rolloverType: string
+        cumulativeActualAmount: number
+        rolloverTargetAmount: number
+      }>
+    }>
+    monthlyAmountsForFlexExpense: {
+      budgetVariability: string
+      monthlyAmounts: Array<{
+        month: string
+        plannedCashFlowAmount: number
+        plannedSetAsideAmount: number
+        actualAmount: number
+        remainingAmount: number
+        previousMonthRolloverAmount: number
+        rolloverType: string
+        cumulativeActualAmount: number
+        rolloverTargetAmount: number
+      }>
+    }
+    totalsByMonth: Array<{
+      month: string
+      totalIncome: {
+        actualAmount: number
+        plannedAmount: number
+        previousMonthRolloverAmount: number
+        remainingAmount: number
+      }
+      totalExpenses: {
+        actualAmount: number
+        plannedAmount: number
+        previousMonthRolloverAmount: number
+        remainingAmount: number
+      }
+      totalFixedExpenses: {
+        actualAmount: number
+        plannedAmount: number
+        previousMonthRolloverAmount: number
+        remainingAmount: number
+      }
+      totalNonMonthlyExpenses: {
+        actualAmount: number
+        plannedAmount: number
+        previousMonthRolloverAmount: number
+        remainingAmount: number
+      }
+      totalFlexibleExpenses: {
+        actualAmount: number
+        plannedAmount: number
+        previousMonthRolloverAmount: number
+        remainingAmount: number
+      }
+    }>
+  }
+  categoryGroups: Array<{
+    id: string
+    name: string
+    order: number
+    type: string
+    budgetVariability: string
+    updatedAt: string
+    groupLevelBudgetingEnabled: boolean
+    categories: Array<{
+      id: string
+      name: string
+      icon: string
+      order: number
+      budgetVariability: string
+      excludeFromBudget: boolean
+      isSystemCategory: boolean
+      updatedAt: string
+      group: {
+        id: string
+        type: string
+        budgetVariability: string
+        groupLevelBudgetingEnabled: boolean
+      }
+    }>
+  }>
+  goalsV2: Array<{
+    id: string
+    name: string
+    archivedAt?: string
+    completedAt?: string
+    priority: string
+    imageStorageProvider?: string
+    imageStorageProviderId?: string
+    plannedContributions: Array<{
+      id: string
+      month: string
+      amount: number
+    }>
+    monthlyContributionSummaries: Array<{
+      month: string
+      sum: number
+    }>
+  }>
 }
 
 export interface BudgetCategory {
@@ -119,55 +236,176 @@ export class BudgetsAPIImpl implements BudgetsAPI {
   constructor(private graphql: GraphQLClient) {}
 
   async getBudgets(options: BudgetOptions = {}): Promise<BudgetData> {
-    const { startDate, endDate, categoryIds } = options
+    const { startDate, endDate } = options
+
+    // Use current month if no dates provided
+    const now = new Date()
+    const defaultStartDate = startDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+    const defaultEndDate = endDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
 
     if (startDate && endDate) {
       validateDateRange(startDate, endDate)
     }
 
+    // FIXED: Use exact Python library query structure
     const query = `
-      query GetBudgets($startDate: String, $endDate: String, $categoryIds: [String]) {
-        budgetData(startDate: $startDate, endDate: $endDate, categoryIds: $categoryIds) {
-          budgetSystem
-          budgetItems {
-            categoryId
-            categoryName
-            plannedAmount
-            actualAmount
-            remainingAmount
-            percentSpent
-          }
-          categoryGroups {
-            id
-            name
-            categories {
-              categoryId
-              categoryName
-              plannedAmount
+      query Common_GetJointPlanningData($startDate: Date!, $endDate: Date!) {
+        budgetSystem
+        budgetData(startMonth: $startDate, endMonth: $endDate) {
+          monthlyAmountsByCategory {
+            category {
+              id
+              __typename
+            }
+            monthlyAmounts {
+              month
+              plannedCashFlowAmount
+              plannedSetAsideAmount
               actualAmount
               remainingAmount
-              percentSpent
+              previousMonthRolloverAmount
+              rolloverType
+              cumulativeActualAmount
+              rolloverTargetAmount
+              __typename
             }
+            __typename
           }
-          goalsV2 {
+          monthlyAmountsByCategoryGroup {
+            categoryGroup {
+              id
+              __typename
+            }
+            monthlyAmounts {
+              month
+              plannedCashFlowAmount
+              plannedSetAsideAmount
+              actualAmount
+              remainingAmount
+              previousMonthRolloverAmount
+              rolloverType
+              cumulativeActualAmount
+              rolloverTargetAmount
+              __typename
+            }
+            __typename
+          }
+          monthlyAmountsForFlexExpense {
+            budgetVariability
+            monthlyAmounts {
+              month
+              plannedCashFlowAmount
+              plannedSetAsideAmount
+              actualAmount
+              remainingAmount
+              previousMonthRolloverAmount
+              rolloverType
+              cumulativeActualAmount
+              rolloverTargetAmount
+              __typename
+            }
+            __typename
+          }
+          totalsByMonth {
+            month
+            totalIncome {
+              actualAmount
+              plannedAmount
+              previousMonthRolloverAmount
+              remainingAmount
+              __typename
+            }
+            totalExpenses {
+              actualAmount
+              plannedAmount
+              previousMonthRolloverAmount
+              remainingAmount
+              __typename
+            }
+            totalFixedExpenses {
+              actualAmount
+              plannedAmount
+              previousMonthRolloverAmount
+              remainingAmount
+              __typename
+            }
+            totalNonMonthlyExpenses {
+              actualAmount
+              plannedAmount
+              previousMonthRolloverAmount
+              remainingAmount
+              __typename
+            }
+            totalFlexibleExpenses {
+              actualAmount
+              plannedAmount
+              previousMonthRolloverAmount
+              remainingAmount
+              __typename
+            }
+            __typename
+          }
+          __typename
+        }
+        categoryGroups {
+          id
+          name
+          order
+          type
+          budgetVariability
+          updatedAt
+          groupLevelBudgetingEnabled
+          categories {
             id
             name
-            description
-            targetAmount
-            currentAmount
-            targetDate
-            progress
+            icon
+            order
+            budgetVariability
+            excludeFromBudget
+            isSystemCategory
+            updatedAt
+            group {
+              id
+              type
+              budgetVariability
+              groupLevelBudgetingEnabled
+              __typename
+            }
+            __typename
           }
+          __typename
+        }
+        goalsV2 {
+          id
+          name
+          archivedAt
+          completedAt
+          priority
+          imageStorageProvider
+          imageStorageProviderId
+          plannedContributions(startMonth: $startDate, endMonth: $endDate) {
+            id
+            month
+            amount
+            __typename
+          }
+          monthlyContributionSummaries(startMonth: $startDate, endMonth: $endDate) {
+            month
+            sum
+            __typename
+          }
+          __typename
         }
       }
     `
 
-    const data = await this.graphql.query<{
-      budgetData: BudgetData
-    }>(query, { startDate, endDate, categoryIds })
+    const data = await this.graphql.query<BudgetData>(query, { 
+      startDate: defaultStartDate, 
+      endDate: defaultEndDate 
+    })
 
-    logger.debug('Retrieved budget data')
-    return data.budgetData
+    logger.debug('Retrieved budget data using Python library schema')
+    return data
   }
 
   async setBudgetAmount(params: BudgetAmountParams): Promise<BudgetItem> {

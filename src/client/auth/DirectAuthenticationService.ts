@@ -1,6 +1,7 @@
 import * as totp from 'otplib'
 import fetch from 'node-fetch'
 import { SessionStorage } from './SessionStorage'
+// import { CaptchaAvoidanceService } from './CaptchaAvoidanceService'
 import { logger, MonarchAuthError, EncryptionService } from '../../utils'
 import { SessionInfo } from '../../types'
 
