@@ -228,6 +228,11 @@ export class MonarchClient {
     return await this.graphql.mutation<T>(mutation, variables)
   }
 
+  // GraphQL client access (for advanced usage like schema discovery)
+  getGraphQLClient(): GraphQLClient {
+    return this.graphql
+  }
+
   // Cache management
   clearCache(): void {
     this.cache?.clear()

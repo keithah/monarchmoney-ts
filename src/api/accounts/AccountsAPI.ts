@@ -1,6 +1,6 @@
 import { GraphQLClient } from '../../client/graphql'
-import { 
-  Account, 
+import {
+  Account,
   AccountBalance,
   CreateAccountInput,
   UpdateAccountInput
@@ -11,7 +11,13 @@ import {
   GET_ACCOUNT_TYPE_OPTIONS,
   GET_NET_WORTH_HISTORY
 } from '../../client/graphql/operations'
-import { 
+import {
+  GET_ACCOUNTS_ULTRA_LIGHT,
+  GET_ACCOUNTS_LIGHT,
+  VerbosityLevel,
+  OptimizedResponseFormatter
+} from '../../client/graphql/optimized-operations'
+import {
   validateAccountId,
   // validateDate,
   validateDateRange,
@@ -19,7 +25,7 @@ import {
 } from '../../utils'
 
 export interface AccountsAPI {
-  getAll(options?: { includeHidden?: boolean }): Promise<Account[]>
+  getAll(options?: { includeHidden?: boolean; verbosity?: VerbosityLevel }): Promise<Account[] | string>
   getById(id: string): Promise<Account>
   getBalances(startDate?: string, endDate?: string): Promise<AccountBalance[]>
   getTypeOptions(): Promise<{ types: Array<{ id: number; name: string; display: string }>, subtypes: Array<{ id: number; name: string; display: string; typeId: number }> }>
@@ -35,22 +41,41 @@ export interface AccountsAPI {
 export class AccountsAPIImpl implements AccountsAPI {
   constructor(private graphql: GraphQLClient) {}
 
-  async getAll(options: { includeHidden?: boolean } = {}): Promise<Account[]> {
+  async getAll(options: { includeHidden?: boolean; verbosity?: VerbosityLevel } = {}): Promise<Account[] | string> {
+    const { includeHidden = false, verbosity = 'standard' } = options;
     logger.debug('Fetching all accounts', options)
 
     try {
-      const response = await this.graphql.query<{
-        accounts: Account[]
-      }>(GET_ACCOUNTS, {}, { cache: true, cacheTTL: 300000 }) // 5 minutes
-
-      const accounts = response.accounts
-
-      // Filter out hidden accounts if requested
-      if (!options.includeHidden) {
-        return accounts.filter(account => !account.isHidden)
+      // Select appropriate query based on verbosity
+      let query: string;
+      switch (verbosity) {
+        case 'ultra-light':
+          query = GET_ACCOUNTS_ULTRA_LIGHT;
+          break;
+        case 'light':
+          query = GET_ACCOUNTS_LIGHT;
+          break;
+        default:
+          query = GET_ACCOUNTS;
       }
 
-      return accounts
+      const response = await this.graphql.query<{
+        accounts: Account[]
+      }>(query, {}, { cache: true, cacheTTL: 300000 }) // 5 minutes
+
+      let accounts = response.accounts;
+
+      // Filter out hidden accounts if requested
+      if (!includeHidden) {
+        accounts = accounts.filter((account: Account) => !account.isHidden);
+      }
+
+      // Return formatted string for MCP context optimization
+      if (verbosity === 'ultra-light' || verbosity === 'light') {
+        return OptimizedResponseFormatter.formatAccounts(accounts, verbosity);
+      }
+
+      return accounts;
     } catch (error) {
       logger.error('Failed to fetch accounts', error)
       throw error
@@ -78,11 +103,11 @@ export class AccountsAPIImpl implements AccountsAPI {
     logger.debug('Fetching account balances', { startDate, endDate })
 
     try {
-      const accounts = await this.getAll({ includeHidden: true })
-      
+      const accounts = await this.getAll({ includeHidden: true, verbosity: 'standard' }) as Account[]
+
       // For now, return current balances
       // TODO: Implement actual balance history query
-      return accounts.map(account => ({
+      return accounts.map((account: Account) => ({
         accountId: account.id,
         date: new Date().toISOString().split('T')[0],
         balance: account.currentBalance
