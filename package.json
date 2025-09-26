@@ -16,7 +16,7 @@
     "dev": "tsc -w",
     "test": "jest --testPathIgnorePatterns=integration",
     "test:unit": "jest --testPathIgnorePatterns=integration",
-    "test:integration": "jest integration.test.ts",
+    "test:integration": "jest tests/integration.test.ts",
     "test:watch": "jest --watch --testPathIgnorePatterns=integration",
     "test:coverage": "jest --coverage --testPathIgnorePatterns=integration",
     "test:all": "jest",
