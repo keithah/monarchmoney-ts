@@ -12,19 +12,19 @@ export class ConsoleLogger implements Logger {
 
   debug(message: string, ...args: unknown[]): void {
     if (this.shouldLog('debug')) {
-      console.debug(`[MonarchMoney DEBUG] ${message}`, ...args)
+      console.error(`[MonarchMoney DEBUG] ${message}`, ...args)
     }
   }
 
   info(message: string, ...args: unknown[]): void {
     if (this.shouldLog('info')) {
-      console.info(`[MonarchMoney INFO] ${message}`, ...args)
+      console.error(`[MonarchMoney INFO] ${message}`, ...args)
     }
   }
 
   warn(message: string, ...args: unknown[]): void {
     if (this.shouldLog('warn')) {
-      console.warn(`[MonarchMoney WARN] ${message}`, ...args)
+      console.error(`[MonarchMoney WARN] ${message}`, ...args)
     }
   }
 
