@@ -364,13 +364,9 @@ export class AuthenticationService {
     if (mfaSecretKey) {
       const code = totp.authenticator.generate(mfaSecretKey)
       logger.debug('Adding MFA code to initial login request like Python')
-      
-      // Use same logic as Python - 6 digits = email_otp, otherwise totp
-      if (code.length === 6 && /^\d+$/.test(code)) {
-        loginData.email_otp = code
-      } else {
-        loginData.totp = code
-      }
+
+      // Use totp field for TOTP codes (like DirectAuthenticationService)
+      loginData.totp = code
     }
 
     // Apply rate limiting before request
@@ -480,12 +476,9 @@ export class AuthenticationService {
   }> {
     const deviceUuid = this.sessionStorage.getDeviceUuid() || EncryptionService.generateDeviceUUID()
     
-    // Detect if code is email OTP (6 digits) or TOTP
-    const isEmailOTP = /^\d{6}$/.test(code.replace(/\s/g, ''))
-    
     // Apply rate limiting before request
     await this.rateLimit()
-    
+
     const response = await fetch(`${this.baseUrl}/auth/login/`, {
       method: 'POST',
       headers: {
@@ -506,7 +499,7 @@ export class AuthenticationService {
         supports_mfa: true,
         supports_email_otp: true,
         supports_recaptcha: true,
-        ...(isEmailOTP ? { email_otp: code } : { totp: code })
+        totp: code
       })
     })
 
