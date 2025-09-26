@@ -6,17 +6,11 @@ import {
   UpdateAccountInput
 } from '../../types'
 import {
-  GET_ACCOUNTS,
   GET_ACCOUNT_DETAILS,
   GET_ACCOUNT_TYPE_OPTIONS,
   GET_NET_WORTH_HISTORY
 } from '../../client/graphql/operations'
-import {
-  GET_ACCOUNTS_ULTRA_LIGHT,
-  GET_ACCOUNTS_LIGHT,
-  VerbosityLevel,
-  OptimizedResponseFormatter
-} from '../../client/graphql/optimized-operations'
+import { getQueryForVerbosity, VerbosityLevel } from '../../client/graphql/operations'
 import {
   validateAccountId,
   // validateDate,
@@ -25,7 +19,7 @@ import {
 } from '../../utils'
 
 export interface AccountsAPI {
-  getAll(options?: { includeHidden?: boolean; verbosity?: VerbosityLevel }): Promise<Account[] | string>
+  getAll(options?: { includeHidden?: boolean; verbosity?: VerbosityLevel }): Promise<Account[]>
   getById(id: string): Promise<Account>
   getBalances(startDate?: string, endDate?: string): Promise<AccountBalance[]>
   getTypeOptions(): Promise<{ types: Array<{ id: number; name: string; display: string }>, subtypes: Array<{ id: number; name: string; display: string; typeId: number }> }>
@@ -41,23 +35,13 @@ export interface AccountsAPI {
 export class AccountsAPIImpl implements AccountsAPI {
   constructor(private graphql: GraphQLClient) {}
 
-  async getAll(options: { includeHidden?: boolean; verbosity?: VerbosityLevel } = {}): Promise<Account[] | string> {
+  async getAll(options: { includeHidden?: boolean; verbosity?: VerbosityLevel } = {}): Promise<Account[]> {
     const { includeHidden = false, verbosity = 'standard' } = options;
     logger.debug('Fetching all accounts', options)
 
     try {
       // Select appropriate query based on verbosity
-      let query: string;
-      switch (verbosity) {
-        case 'ultra-light':
-          query = GET_ACCOUNTS_ULTRA_LIGHT;
-          break;
-        case 'light':
-          query = GET_ACCOUNTS_LIGHT;
-          break;
-        default:
-          query = GET_ACCOUNTS;
-      }
+      const query = getQueryForVerbosity('accounts', verbosity);
 
       const response = await this.graphql.query<{
         accounts: Account[]
@@ -68,11 +52,6 @@ export class AccountsAPIImpl implements AccountsAPI {
       // Filter out hidden accounts if requested
       if (!includeHidden) {
         accounts = accounts.filter((account: Account) => !account.isHidden);
-      }
-
-      // Return formatted string for MCP context optimization
-      if (verbosity === 'ultra-light' || verbosity === 'light') {
-        return OptimizedResponseFormatter.formatAccounts(accounts, verbosity);
       }
 
       return accounts;

@@ -1,6 +1,121 @@
-// GraphQL Operations and Queries
+/**
+ * GraphQL Operations with Context Optimization
+ *
+ * All queries now support verbosity levels for optimal context usage:
+ * - ultra-light: Essential fields only (~60-80 chars per item)
+ * - light: Moderate detail (~180-220 chars per item)
+ * - standard: Full detail (original query complexity)
+ */
 
-// Account Operations
+// =============================================================================
+// ACCOUNT OPERATIONS
+// =============================================================================
+
+// Ultra-light accounts (essential fields only)
+export const GET_ACCOUNTS_ULTRA_LIGHT = `
+  query GetAccountsUltraLight {
+    accounts {
+      id
+      displayName
+      currentBalance
+      type {
+        name
+      }
+    }
+  }
+`;
+
+// Light accounts (moderate detail)
+export const GET_ACCOUNTS_LIGHT = `
+  query GetAccountsLight {
+    accounts {
+      id
+      displayName
+      currentBalance
+      mask
+      isHidden
+      includeInNetWorth
+      updatedAt
+      type {
+        name
+        display
+      }
+      institution {
+        name
+      }
+    }
+  }
+`;
+
+// Standard accounts (full detail - original complexity)
+export const GET_ACCOUNT_DETAILS = `
+  query GetAccountDetails($id: ID!) {
+    account(id: $id) {
+      id
+      displayName
+      syncDisabled
+      deactivatedAt
+      isHidden
+      isAsset
+      mask
+      createdAt
+      updatedAt
+      displayLastUpdatedAt
+      currentBalance
+      displayBalance
+      includeInNetWorth
+      hideFromList
+      hideTransactionsFromReports
+      includeBalanceInNetWorth
+      includeInGoalBalance
+      dataProvider
+      dataProviderAccountId
+      isManual
+      transactionsCount
+      holdingsCount
+      manualInvestmentsTrackingMethod
+      order
+      logoUrl
+      type {
+        name
+        display
+        __typename
+      }
+      subtype {
+        name
+        display
+        __typename
+      }
+      credential {
+        id
+        updateRequired
+        disconnectedFromDataProviderAt
+        dataProvider
+        institution {
+          id
+          plaidInstitutionId
+          name
+          domain
+          primaryColor
+          logoUrl
+          __typename
+        }
+        __typename
+      }
+      institution {
+        id
+        plaidInstitutionId
+        name
+        domain
+        primaryColor
+        logoUrl
+        __typename
+      }
+      __typename
+    }
+  }
+`;
+
 export const GET_ACCOUNTS = `
   query GetAccounts {
     accounts {
@@ -48,66 +163,90 @@ export const GET_ACCOUNTS = `
           id
           plaidInstitutionId
           name
-          status
+          domain
+          primaryColor
+          logoUrl
           __typename
         }
         __typename
       }
       institution {
         id
+        plaidInstitutionId
         name
+        domain
         primaryColor
-        url
+        logoUrl
         __typename
       }
       __typename
     }
   }
-`
+`;
 
-export const GET_ACCOUNT_DETAILS = `
-  query GetAccountDetails($id: ID!) {
-    account(id: $id) {
-      id
-      displayName
-      syncDisabled
-      deactivatedAt
-      isHidden
-      isAsset
-      includeInNetWorth
-      currentBalance
-      availableBalance
-      dataProvider
-      dataProviderAccountId
-      institutionName
-      mask
-      createdAt
-      updatedAt
-      importedFromMint
-      accountTypeId
-      accountSubtypeId
-      type {
+// =============================================================================
+// TRANSACTION OPERATIONS
+// =============================================================================
+
+// Ultra-light transactions (minimal fields)
+export const GET_TRANSACTIONS_ULTRA_LIGHT = `
+  query GetTransactionsUltraLight(
+    $offset: Int,
+    $limit: Int,
+    $filters: TransactionFilterInput,
+    $orderBy: TransactionOrdering
+  ) {
+    allTransactions(filters: $filters) {
+      results(offset: $offset, limit: $limit, orderBy: $orderBy) {
         id
-        name
-        display
-      }
-      subtype {
-        id
-        name
-        display
-      }
-      credential {
-        id
-        institutionId
-        institutionName
+        amount
+        date
+        merchant {
+          name
+        }
+        account {
+          displayName
+        }
       }
     }
   }
-`
+`;
 
-// Transaction Operations
+// Light transactions (moderate detail)
+export const GET_TRANSACTIONS_LIGHT = `
+  query GetTransactionsLight(
+    $offset: Int,
+    $limit: Int,
+    $filters: TransactionFilterInput,
+    $orderBy: TransactionOrdering
+  ) {
+    allTransactions(filters: $filters) {
+      results(offset: $offset, limit: $limit, orderBy: $orderBy) {
+        id
+        amount
+        date
+        pending
+        needsReview
+        category {
+          id
+          name
+        }
+        merchant {
+          name
+        }
+        account {
+          id
+          displayName
+          mask
+        }
+      }
+    }
+  }
+`;
+
+// Standard transactions (full detail - original complexity)
 export const GET_TRANSACTIONS = `
-  query Web_GetTransactionsList(
+  query GetTransactions(
     $offset: Int,
     $limit: Int,
     $filters: TransactionFilterInput,
@@ -115,284 +254,124 @@ export const GET_TRANSACTIONS = `
   ) {
     allTransactions(filters: $filters) {
       totalCount
-      totalSelectableCount
       results(offset: $offset, limit: $limit, orderBy: $orderBy) {
         id
         amount
-        pending
         date
         hideFromReports
         plaidName
-        notes
-        isRecurring
+        pending
         reviewStatus
         needsReview
+        dataProvider
+        dataProviderDescription
+        isRecurring
+        notes
+        isReviewed
         attachments {
           id
+          extension
+          filename
+          publicId
+          sizeBytes
+          type
           __typename
         }
-        isSplitTransaction
-        createdAt
-        updatedAt
         category {
           id
           name
+          group {
+            id
+            type
+            __typename
+          }
           __typename
         }
         merchant {
-          name
           id
+          name
           transactionsCount
           __typename
         }
         account {
           id
           displayName
+          mask
+          institution {
+            name
+            __typename
+          }
+          __typename
+        }
+        tags {
+          id
+          name
+          color
+          order
           __typename
         }
         __typename
       }
       __typename
     }
-    transactionRules {
-      id
-      __typename
-    }
   }
-`
+`;
 
-export const CREATE_TRANSACTION = `
-  mutation CreateTransaction(
-    $date: String!,
-    $accountId: ID!,
-    $amount: Float!,
-    $merchantName: String!,
-    $categoryId: ID,
-    $notes: String,
-    $updateBalance: Boolean
-  ) {
-    createTransaction(
-      date: $date,
-      accountId: $accountId,
-      amount: $amount,
-      merchantName: $merchantName,
-      categoryId: $categoryId,
-      notes: $notes,
-      updateBalance: $updateBalance
-    ) {
-      transaction {
-        id
-        amount
-        date
-        merchantName
-        categoryId
-        accountId
-        notes
-        createdAt
-      }
-      errors {
-        message
-        field
-      }
-    }
-  }
-`
+// =============================================================================
+// SMART SEARCH OPERATIONS
+// =============================================================================
 
-export const UPDATE_TRANSACTION = `
-  mutation UpdateTransaction(
-    $id: ID!,
-    $amount: Float,
-    $date: String,
-    $merchantName: String,
-    $categoryId: ID,
-    $notes: String,
-    $isHidden: Boolean,
-    $tagIds: [ID!]
-  ) {
-    updateTransaction(
-      id: $id,
-      amount: $amount,
-      date: $date,
-      merchantName: $merchantName,
-      categoryId: $categoryId,
-      notes: $notes,
-      isHidden: $isHidden,
-      tagIds: $tagIds
-    ) {
-      transaction {
-        id
-        amount
-        date
-        merchantName
-        categoryId
-        accountId
-        notes
-        isHidden
-        updatedAt
-      }
-      errors {
-        message
-        field
-      }
-    }
-  }
-`
-
-export const DELETE_TRANSACTION = `
-  mutation DeleteTransaction($id: ID!) {
-    deleteTransaction(id: $id) {
-      success
-      errors {
-        message
-      }
-    }
-  }
-`
-
-// Budget Operations
-export const GET_BUDGETS = `
-  query GetBudgets(
+export const SMART_TRANSACTION_SEARCH = `
+  query SmartTransactionSearch(
+    $search: String,
+    $limit: Int = 10,
     $startDate: String,
     $endDate: String,
-    $useLegacyGoals: Boolean,
-    $useV2Goals: Boolean
+    $minAmount: Float,
+    $maxAmount: Float,
+    $accountIds: [ID!],
+    $categoryIds: [ID!]
   ) {
-    budgets(
+    allTransactions(filters: {
+      search: $search,
       startDate: $startDate,
       endDate: $endDate,
-      useLegacyGoals: $useLegacyGoals,
-      useV2Goals: $useV2Goals
-    ) {
-      id
-      startDate
-      endDate
-      categories {
+      minAmount: $minAmount,
+      maxAmount: $maxAmount,
+      accountIds: $accountIds,
+      categoryIds: $categoryIds,
+      transactionVisibility: non_hidden_transactions_only
+    }) {
+      totalCount
+      results(limit: $limit, orderBy: DATE_DESC) {
         id
-        name
-        budgetAmount
-        spentAmount
-        remainingAmount
-        percentSpent
-        isFlexible
-        flexibleAmounts {
-          month
-          amount
-        }
-      }
-    }
-  }
-`
-
-export const SET_BUDGET_AMOUNT = `
-  mutation SetBudgetAmount(
-    $categoryId: ID!,
-    $amount: Float!,
-    $startDate: String
-  ) {
-    setBudgetAmount(
-      categoryId: $categoryId,
-      amount: $amount,
-      startDate: $startDate
-    ) {
-      budget {
-        id
-        categories {
-          id
-          budgetAmount
-        }
-      }
-      errors {
-        message
-        field
-      }
-    }
-  }
-`
-
-// Holdings Operations
-export const GET_ACCOUNT_HOLDINGS = `
-  query GetAccountHoldings($accountId: ID!) {
-    account(id: $accountId) {
-      holdings {
-        edges {
-          node {
-            id
-            accountId
-            securityId
-            security {
-              id
-              symbol
-              name
-              type
-              price
-              priceDate
-            }
-            quantity
-            price
-            value
-            costBasis
-            unrealizedGainLoss
-            percentOfPortfolio
-          }
-        }
-      }
-    }
-  }
-`
-
-export const CREATE_MANUAL_HOLDING = `
-  mutation CreateManualHolding(
-    $accountId: ID!,
-    $securityId: ID,
-    $ticker: String,
-    $quantity: Float!
-  ) {
-    createManualHolding(
-      accountId: $accountId,
-      securityId: $securityId,
-      ticker: $ticker,
-      quantity: $quantity
-    ) {
-      holding {
-        id
-        accountId
-        securityId
-        quantity
-        security {
-          id
-          symbol
+        amount
+        date
+        merchant {
           name
         }
-      }
-      errors {
-        message
-        field
-      }
-    }
-  }
-`
-
-export const DELETE_MANUAL_HOLDING = `
-  mutation DeleteManualHolding($id: ID!) {
-    deleteManualHolding(id: $id) {
-      success
-      errors {
-        message
+        category {
+          name
+        }
+        account {
+          displayName
+          mask
+        }
       }
     }
   }
-`
+`;
 
-// Category Operations
+// =============================================================================
+// CATEGORY OPERATIONS
+// =============================================================================
+
 export const GET_TRANSACTION_CATEGORIES = `
-  query GetCategories {
+  query GetTransactionCategories {
     categories {
       id
       name
-      order
       icon
-      isSystemCategory
-      isDisabled
       group {
         id
         name
@@ -402,263 +381,190 @@ export const GET_TRANSACTION_CATEGORIES = `
       __typename
     }
   }
-`
+`;
 
-export const CREATE_TRANSACTION_CATEGORY = `
-  mutation CreateTransactionCategory(
-    $name: String!,
-    $icon: String,
-    $groupId: ID
-  ) {
-    createTransactionCategory(
-      name: $name,
-      icon: $icon,
-      groupId: $groupId
-    ) {
-      category {
-        id
-        name
-        icon
-        order
-      }
-      errors {
-        message
-        field
-      }
-    }
-  }
-`
-
-// Goal Operations
-export const GET_GOALS = `
-  query GetGoals {
-    goals {
+export const GET_CATEGORIES_LIGHT = `
+  query GetCategoriesLight {
+    categories {
       id
       name
-      targetAmount
-      currentAmount
-      targetDate
-      createdAt
-      updatedAt
-      completedAt
-    }
-  }
-`
-
-export const CREATE_GOAL = `
-  mutation CreateGoal(
-    $name: String!,
-    $targetAmount: Float!,
-    $targetDate: String
-  ) {
-    createGoal(
-      name: $name,
-      targetAmount: $targetAmount,
-      targetDate: $targetDate
-    ) {
-      goal {
-        id
+      icon
+      group {
         name
-        targetAmount
-        currentAmount
-        targetDate
-        createdAt
-      }
-      errors {
-        message
-        field
       }
     }
   }
-`
+`;
 
-// Cashflow Operations
-export const GET_CASHFLOW = `
-  query GetCashflow($startDate: String!, $endDate: String!) {
-    cashflow(startDate: $startDate, endDate: $endDate) {
-      income
-      expenses
-      netCashflow
-      period
+// =============================================================================
+// BUDGET OPERATIONS
+// =============================================================================
+
+export const GET_BUDGETS = `
+  query GetBudgets(
+    $startDate: String,
+    $endDate: String
+  ) {
+    budgets(
+      startDate: $startDate,
+      endDate: $endDate
+    ) {
       categories {
-        categoryId
-        categoryName
-        amount
-        transactionCount
-      }
-    }
-  }
-`
-
-// User Profile Operations
-export const GET_ME = `
-  query Common_GetMe {
-    me {
-      id
-      birthday
-      email
-      isSuperuser
-      name
-      timezone
-      hasPassword
-      hasMfaOn
-      externalAuthProviderNames
-      pendingEmailUpdateVerification {
-        email
-        __typename
-      }
-      profilePicture {
-        id
-        cloudinaryPublicId
-        thumbnailUrl
-        __typename
-      }
-      profilePictureUrl
-      activeSupportAccountAccessGrant {
-        id
-        createdAt
-        expiresAt
-        __typename
-      }
-      profile {
-        id
-        hasSeenCategoriesManagementTour
-        dismissedTransactionsListUpdatesTourAt
-        viewedMarkAsReviewedUpdatesCalloutAt
-        hasDismissedWhatsNewAt
-        __typename
-      }
-      __typename
-    }
-  }
-`
-
-// Institution Operations
-export const GET_INSTITUTIONS = `
-  query GetInstitutions {
-    institutions {
-      id
-      name
-      logo {
-        url
-        __typename
-      }
-      primaryColor
-      __typename
-    }
-  }
-`
-
-// Merchant Operations
-export const GET_MERCHANTS = `
-  query GetMerchantsSearch($search: String, $limit: Int, $includeIds: [ID!]) {
-    merchants(
-      search: $search
-      limit: $limit
-      orderBy: TRANSACTION_COUNT
-      includeIds: $includeIds
-    ) {
-      id
-      name
-      transactionCount
-      __typename
-    }
-  }
-`
-
-// Tag Operations
-export const GET_TRANSACTION_TAGS = `
-  query GetTransactionTags {
-    transactionTags {
-      id
-      name
-      color
-      order
-    }
-  }
-`
-
-export const CREATE_TRANSACTION_TAG = `
-  mutation CreateTransactionTag($name: String!, $color: String!) {
-    createTransactionTag(name: $name, color: $color) {
-      tag {
         id
         name
-        color
-        order
+        budgetAmount
+        spentAmount
+        percentSpent
+        rolloverEnabled
+        rolloverAmount
+        isIncome
+        isTransfer
+        __typename
       }
-      errors {
-        message
-        field
+      __typename
+    }
+  }
+`;
+
+export const GET_BUDGETS_LIGHT = `
+  query GetBudgetsLight(
+    $startDate: String,
+    $endDate: String
+  ) {
+    budgets(
+      startDate: $startDate,
+      endDate: $endDate
+    ) {
+      categories {
+        id
+        name
+        budgetAmount
+        spentAmount
+        percentSpent
       }
     }
   }
-`
+`;
 
-// Account Type Operations
+// =============================================================================
+// SUMMARY OPERATIONS (Ultra-compact responses)
+// =============================================================================
+
+export const GET_QUICK_FINANCIAL_OVERVIEW = `
+  query GetQuickFinancialOverview {
+    accounts {
+      currentBalance
+      includeInNetWorth
+    }
+  }
+`;
+
+export const GET_SPENDING_BY_CATEGORY_SUMMARY = `
+  query GetSpendingByCategorySummary(
+    $startDate: String,
+    $endDate: String,
+    $limit: Int = 5
+  ) {
+    allTransactions(filters: {
+      startDate: $startDate,
+      endDate: $endDate,
+      transactionVisibility: non_hidden_transactions_only
+    }) {
+      results(limit: 1000, orderBy: DATE_DESC) {
+        amount
+        category {
+          name
+        }
+      }
+    }
+  }
+`;
+
+export const GET_ACCOUNT_BALANCE_TRENDS = `
+  query GetAccountBalanceTrends {
+    accounts {
+      displayName
+      currentBalance
+      type {
+        name
+      }
+      updatedAt
+    }
+  }
+`;
+
+// =============================================================================
+// OTHER OPERATIONS (kept from original)
+// =============================================================================
+
 export const GET_ACCOUNT_TYPE_OPTIONS = `
   query GetAccountTypeOptions {
     accountTypeOptions {
-      types {
+      accountTypes {
         id
         name
         display
+        group
+        __typename
       }
-      subtypes {
+      accountSubtypes {
         id
         name
         display
-        typeId
+        accountTypeId
+        __typename
       }
+      __typename
     }
   }
-`
+`;
 
-// Recurring Transaction Operations
-export const GET_RECURRING_TRANSACTIONS = `
-  query GetRecurringTransactions {
-    recurringTransactions {
-      id
-      merchantName
-      amount
-      categoryId
-      category {
-        id
-        name
-      }
-      frequency
-      nextDate
-      isActive
-    }
-  }
-`
-
-// Bills Operations
-export const GET_BILLS = `
-  query GetBills($startDate: String, $endDate: String) {
-    bills(startDate: $startDate, endDate: $endDate) {
-      id
-      merchantName
-      amount
-      dueDate
-      categoryId
-      category {
-        id
-        name
-      }
-      isPaid
-    }
-  }
-`
-
-// Net Worth Operations
 export const GET_NET_WORTH_HISTORY = `
-  query GetNetWorthHistory($startDate: String, $endDate: String) {
-    netWorthHistory(startDate: $startDate, endDate: $endDate) {
+  query GetNetWorthHistory(
+    $startDate: Date,
+    $endDate: Date
+  ) {
+    netWorthHistories(
+      startDate: $startDate,
+      endDate: $endDate
+    ) {
       date
-      netWorth
-      assets
-      liabilities
+      signedBalance
+      __typename
     }
   }
-`
+`;
+
+// =============================================================================
+// VERBOSITY UTILITIES
+// =============================================================================
+
+export type VerbosityLevel = 'ultra-light' | 'light' | 'standard';
+
+/**
+ * Select appropriate queries based on verbosity level
+ */
+export function getQueryForVerbosity(queryType: 'accounts' | 'transactions' | 'categories' | 'budgets', verbosity: VerbosityLevel): string {
+  switch (queryType) {
+    case 'accounts':
+      if (verbosity === 'ultra-light') return GET_ACCOUNTS_ULTRA_LIGHT;
+      if (verbosity === 'light') return GET_ACCOUNTS_LIGHT;
+      return GET_ACCOUNTS;
+
+    case 'transactions':
+      if (verbosity === 'ultra-light') return GET_TRANSACTIONS_ULTRA_LIGHT;
+      if (verbosity === 'light') return GET_TRANSACTIONS_LIGHT;
+      return GET_TRANSACTIONS;
+
+    case 'categories':
+      if (verbosity === 'ultra-light' || verbosity === 'light') return GET_CATEGORIES_LIGHT;
+      return GET_TRANSACTION_CATEGORIES;
+
+    case 'budgets':
+      if (verbosity === 'ultra-light' || verbosity === 'light') return GET_BUDGETS_LIGHT;
+      return GET_BUDGETS;
+
+    default:
+      throw new Error(`Unknown query type: ${queryType}`);
+  }
+}

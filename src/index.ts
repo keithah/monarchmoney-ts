@@ -12,6 +12,10 @@ export type { LoginOptions, MFAOptions } from './client/auth'
 export { GraphQLClient } from './client/graphql'
 export type { GraphQLRequestOptions } from './client/graphql'
 
+// Optimization utilities for MCP and other integrations
+export { ResponseFormatter, type VerbosityLevel } from './client/ResponseFormatter'
+export { getQueryForVerbosity } from './client/graphql/operations'
+
 // Cache
 export { MemoryCache, PersistentCache, MultiLevelCache } from './cache'
 
