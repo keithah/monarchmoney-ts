@@ -126,7 +126,7 @@ npm run test:integration
 
 The SDK automatically handles MonarchMoney's rate limits:
 
-- **100ms minimum** between requests (matching official Python SDK)
+- **250ms minimum** between requests (human-like behavior to avoid rate limiting)
 - **Exponential backoff** on rate limit errors
 - **Concurrent request protection** prevents multiple simultaneous logins
 - **Retry-After header support** for optimal retry timing
@@ -164,7 +164,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- Inspired by the official [Python MonarchMoney library](https://github.com/monarchmoney/monarchmoney)
+- Inspired by [hammem's MonarchMoney Python library](https://github.com/hammem/monarchmoney) and [keithah's enhanced version](https://github.com/keithah/monarchmoney-enhanced)
 - Built with TypeScript, Node-Fetch, and modern JavaScript practices
 
 ## 📊 Status
