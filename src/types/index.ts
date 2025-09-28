@@ -333,6 +333,10 @@ export interface SessionInfo {
   lastValidated?: string
   isStale: boolean
   expiresAt?: string
+  token?: string
+  userId?: string
+  email?: string
+  deviceUuid?: string
 }
 
 // API Method Parameter Types
