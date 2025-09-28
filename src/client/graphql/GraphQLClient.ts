@@ -197,9 +197,13 @@ export class GraphQLClient {
     }
 
     // Debug: Log GraphQL request details
+    const safeHeaders = { ...requestHeaders }
+    if (safeHeaders.Authorization) {
+      safeHeaders.Authorization = 'Token ***'
+    }
     logger.debug('GraphQL Request Details:', {
       url: this.baseUrl,
-      headers: requestHeaders,
+      headers: safeHeaders,
       body: requestBody
     })
 
