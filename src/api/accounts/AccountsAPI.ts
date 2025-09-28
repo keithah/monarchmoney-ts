@@ -124,10 +124,34 @@ export class AccountsAPIImpl implements AccountsAPI {
     logger.debug(`Fetching account history: ${accountId}`, { startDate, endDate })
 
     try {
-      // TODO: Implement account history GraphQL query
-      // For now, return current balance as a single point
+      // Use the recent balances query pattern from HAR
+      const ACCOUNT_RECENT_BALANCES = `
+        query Web_GetAccountsPageRecentBalance($startDate: Date) {
+          accounts {
+            id
+            recentBalances(startDate: $startDate)
+            __typename
+          }
+        }
+      `
+
+      const response = await this.graphql.query<{
+        accounts: Array<{
+          id: string
+          recentBalances: number[]
+        }>
+      }>(ACCOUNT_RECENT_BALANCES, { startDate }, { cache: true, cacheTTL: 300000 })
+
+      // Find the specific account and format the response
+      const accountData = response.accounts.find(acc => acc.id === accountId)
+      if (!accountData) {
+        throw new Error(`Account ${accountId} not found`)
+      }
+
+      // For now, return current balance as a single point since recentBalances format isn't clear
+      // TODO: Parse recentBalances array properly when we understand the format
       const account = await this.getById(accountId)
-      
+
       return [{
         accountId: account.id,
         date: new Date().toISOString().split('T')[0],
@@ -149,19 +173,28 @@ export class AccountsAPIImpl implements AccountsAPI {
     logger.debug('Fetching net worth history', { startDate, endDate })
 
     try {
-      const response = await this.graphql.query<{
-        netWorthHistory: Array<{
-          date: string
-          netWorth: number
-          assets: number
-          liabilities: number
-        }>
-      }>(GET_NET_WORTH_HISTORY, {
-        startDate,
-        endDate
-      }, { cache: true, cacheTTL: 600000 }) // 10 minutes
+      // Build filters object according to HAR pattern
+      const filters: Record<string, any> = {}
+      if (startDate !== undefined) filters.startDate = startDate
+      if (endDate !== undefined) filters.endDate = endDate
+      filters.useAdaptiveGranularity = true
 
-      return response.netWorthHistory
+      const response = await this.graphql.query<{
+        aggregateSnapshots: Array<{
+          date: string
+          balance: number
+          assetsBalance: number
+          liabilitiesBalance: number
+        }>
+      }>(GET_NET_WORTH_HISTORY, { filters }, { cache: true, cacheTTL: 600000 }) // 10 minutes
+
+      // Map the response to the expected format
+      return response.aggregateSnapshots.map(item => ({
+        date: item.date,
+        netWorth: item.balance,
+        assets: item.assetsBalance,
+        liabilities: item.liabilitiesBalance
+      }))
     } catch (error) {
       logger.error('Failed to fetch net worth history', error)
       throw error

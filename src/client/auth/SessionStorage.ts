@@ -163,7 +163,11 @@ export class SessionStorage {
       createdAt: new Date(session.createdAt).toISOString(),
       lastValidated: session.lastValidated ? new Date(session.lastValidated).toISOString() : undefined,
       isStale,
-      expiresAt: session.expiresAt ? new Date(session.expiresAt).toISOString() : undefined
+      expiresAt: session.expiresAt ? new Date(session.expiresAt).toISOString() : undefined,
+      token: session.token,
+      userId: session.userId,
+      email: session.email,
+      deviceUuid: session.deviceUuid
     }
   }
 

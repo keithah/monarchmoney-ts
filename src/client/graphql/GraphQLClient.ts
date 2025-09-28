@@ -177,29 +177,56 @@ export class GraphQLClient {
       throw new MonarchAPIError('No authentication token available')
     }
 
-    const response = await fetch(this.baseUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Token ${token}`,
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36',
-        'Accept': 'application/json',
-        'Client-Platform': 'web', // Fixed: match Python case exactly
-        'Origin': 'https://app.monarchmoney.com',
-        'device-uuid': deviceUuid || this.auth.getDeviceUuid() || 'unknown',
-        'x-cio-client-platform': 'web',
-        'x-cio-site-id': '2598be4aa410159198b2',
-        'x-gist-user-anonymous': 'false'
-      },
-      body: JSON.stringify({
-        query: query.trim(),
-        variables: variables || {}
-      })
+    const requestBody = {
+      query: query.trim(),
+      variables: variables || {},
+      operationName: null // The web UI sends null for operationName when not specified
+    }
+
+    const requestHeaders = {
+      'Content-Type': 'application/json',
+      'Authorization': `Token ${token}`,
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36',
+      'Accept': 'application/json',
+      'Client-Platform': 'web', // Fixed: match Python case exactly
+      'Origin': 'https://app.monarchmoney.com',
+      'device-uuid': deviceUuid || this.auth.getDeviceUuid() || 'unknown',
+      'x-cio-client-platform': 'web',
+      'x-cio-site-id': '2598be4aa410159198b2',
+      'x-gist-user-anonymous': 'false'
+    }
+
+    // Debug: Log GraphQL request details
+    logger.debug('GraphQL Request Details:', {
+      url: this.baseUrl,
+      headers: requestHeaders,
+      body: requestBody
     })
 
-    handleHTTPResponse(response)
+    const response = await fetch(this.baseUrl, {
+      method: 'POST',
+      headers: requestHeaders,
+      body: JSON.stringify(requestBody)
+    })
 
-    const data = await response.json() as GraphQLResponse<T>
+    // Debug: Log response details
+    logger.debug(`GraphQL Response: ${response.status} ${response.statusText}`)
+
+    // Get response text first to log it, then handle errors
+    const responseText = await response.text()
+    logger.debug('GraphQL Response Body:', responseText)
+
+    if (response.status >= 400) {
+      handleHTTPResponse(response)
+    }
+
+    let data: GraphQLResponse<T>
+    try {
+      data = JSON.parse(responseText) as GraphQLResponse<T>
+    } catch (parseError) {
+      logger.error('Failed to parse GraphQL response as JSON:', parseError)
+      throw new MonarchAPIError(`Invalid JSON response: ${responseText}`)
+    }
 
     if (data.errors && data.errors.length > 0) {
       this.handleGraphQLErrors(data.errors)

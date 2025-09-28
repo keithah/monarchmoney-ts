@@ -49,7 +49,7 @@ export const GET_ACCOUNTS_LIGHT = `
 
 // Standard accounts (full detail - original complexity)
 export const GET_ACCOUNT_DETAILS = `
-  query GetAccountDetails($id: ID!) {
+  query Common_AccountDetails_getAccount($id: UUID!) {
     account(id: $id) {
       id
       displayName
@@ -91,24 +91,11 @@ export const GET_ACCOUNT_DETAILS = `
         updateRequired
         disconnectedFromDataProviderAt
         dataProvider
-        institution {
-          id
-          plaidInstitutionId
-          name
-          domain
-          primaryColor
-          logoUrl
-          __typename
-        }
         __typename
       }
       institution {
         id
-        plaidInstitutionId
         name
-        domain
-        primaryColor
-        logoUrl
         __typename
       }
       __typename
@@ -159,24 +146,11 @@ export const GET_ACCOUNTS = `
         updateRequired
         disconnectedFromDataProviderAt
         dataProvider
-        institution {
-          id
-          plaidInstitutionId
-          name
-          domain
-          primaryColor
-          logoUrl
-          __typename
-        }
         __typename
       }
       institution {
         id
-        plaidInstitutionId
         name
-        domain
-        primaryColor
-        logoUrl
         __typename
       }
       __typename
@@ -520,16 +494,12 @@ export const GET_ACCOUNT_TYPE_OPTIONS = `
 `;
 
 export const GET_NET_WORTH_HISTORY = `
-  query GetNetWorthHistory(
-    $startDate: Date,
-    $endDate: Date
-  ) {
-    netWorthHistories(
-      startDate: $startDate,
-      endDate: $endDate
-    ) {
+  query Common_GetAggregateSnapshots($filters: AggregateSnapshotFilters) {
+    aggregateSnapshots(filters: $filters) {
       date
-      signedBalance
+      balance
+      assetsBalance
+      liabilitiesBalance
       __typename
     }
   }
