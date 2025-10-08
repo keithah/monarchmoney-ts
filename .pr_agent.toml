@@ -1,0 +1,14 @@
+[github_app]
+# Automatically run these commands when a PR is opened
+pr_commands = [
+    "/describe",
+    "/review",
+    "/improve"
+]
+
+# Run commands on every push to an open PR
+handle_push_trigger = true
+push_commands = [
+    "/describe",
+    "/review"
+]
